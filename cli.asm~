@@ -1,0 +1,251 @@
+; ***********************************************************************
+; Juego de Puntos														*
+; Codigo Nasm															*
+; Prof. Jaime Gutierrez Alfaro											*
+; Arquitectura de computadoras											*
+; Instituto Tecnologico de Costa Rica									*
+; Daniel Solis Mendez													*
+; Melvin Alonso Elizondo Perez											*
+; II Semestre / 2013													*
+; ***********************************************************************
+; Esto es para hacer el codigo mas legible
+sys_exit	equ 1
+stdout		equ 1
+stdin 		equ 0
+sys_read 	equ 3
+sys_write 	equ 4
+sys_open 	equ 5
+SECTION .bss ; Datos no inicializados.
+	
+	bufLen		equ 	10 ; Longitud del buffer igual a 10 bytes.
+	buffer 		resb 	bufLen ; Reservamos 10 bytes para los input de las opciones escogidas.
+	
+	bufLenJug	equ		50 ; Longitud del buffer 50. 	
+	bufferJug1 	resb 	bufLenJug ; \;
+	bufferJug2	resb 	bufLenJug ;  | Reservamos 50 bytes para 
+	bufferJug3	resb 	bufLenJug ;  | el nombre de cada jugador.
+	bufferJug4	resb 	bufLenJug ; /;
+	
+	bufLenJuego	equ		1413 ; Longitud para el buffer del juego igual a 1413 bytes.
+	bufferJuego	resb 	bufLenJuego ; Reservamos bufLenJuego bytes.
+	
+	simboloJug	resb	1 ; Reservamos 1 byte para el simbolo de cada jugador.  
+	
+	bufLenInst	equ		1600
+	bufferInst	resb	bufLenInst
+	
+SECTION .data ; Datos inicializados
+	;----------------------------------------------------
+	; Mensajes usados durante la ejecucion del programa.|
+	;----------------------------------------------------
+	;%include 'mel.asm'
+	menuPriTxt: 		db		"        ______            _             ",10," 	| ___ \          | |            ",10,"	| |_/ /   _ _ __ | |_ ___  ___  ",10,"	|  __/ | | | '_ \| __/ _ \/ __| ",10,"	| |  | |_| | | | | || (_) \__ \ ",10,"	\_|   \__,_|_| |_|\__\___/|___/",10,10,"1) Jugar",10,"2) Como jugar?",10,"3) Salir",10,"-> ",0
+	len: 				equ 	$-menuPriTxt
+	menuTipoJuegoTxt 	db 		10,"     -JUGAR-",10,"1) Juego Pequeno",10,"2) Juego Mediano",10,"3) Juego Grande",10,"4) Menu Principal",10,"-> ",0
+	len2: 				equ		$-menuTipoJuegoTxt
+	despedidaTxt:		db  	10,'Gracias por jugar "Puntos"! ',10,10
+	len3:				equ		$-despedidaTxt
+	msjPeque:			db		10,"Este juego solo permite 2 jugadores!",10,10,"1) Jugar",10,"2) Ir atras",10,"-> ",0
+	len4:				equ 	$-msjPeque
+	jugTxt:				db 		10,"Digite el nombre del jugador",10,"-> ",0
+	len5:				equ		$-jugTxt
+	cantidadJugTexto:	db		10,"Elija la cantidad de jugadores:",10,"2",10,"3",10,"-> ",0
+	len6:				equ 	$-cantidadJugTexto
+	cantidadJugTexto2:	db		10,"Elija la cantidad de jugadores:",10,"2",10,"3",10,"4",10,"-> ",0
+	len7:				equ 	$-cantidadJugTexto2
+	tituloTxt:			db		10,".:: P U N T O S ::.",10,10,0
+	lenTitulo:			equ		$-tituloTxt
+	titulo2Txt:			db		10,".:: PUNTUACIONES DEL JUEGO ::.",10,10,0
+	lenTitulo2:			equ		$-titulo2Txt
+	errorArchivoTexto: 	db 		10,"Error: no se pudo leer el archivo del juego.", 10, 10
+	errorArchivoLen:	equ 	$-errorArchivoTexto
+	clrScr:				db 		`\33[H\33[2J`
+	len9:				equ 	$-clrScr
+	jugadaTxt:			db		"Digite su jugada",10,"-> ",0
+	lenJugada:			equ		$-jugadaTxt
+	turnoTxt:			db		"Turno del jugador: ",0
+	lenTurno:			equ		$-turnoTxt
+	puntoTxt:			db		" puntos para ",0
+	lenPunto:			equ		$-puntoTxt
+	empateTxt			db		"Los jugadores ah empatado.",10,0
+	lenEmpate			equ		$-empateTxt
+	introTxt			db		"El jugador ",0
+	lenIntro			equ		$-introTxt
+	ganadorTxt			db		"Ha ganado Felicidades!! :) ",0
+	lenGanador			equ		$-ganadorTxt
+	enter:				db		10,0
+	lenEnter:			equ		$-enter	
+	preguntaTxt:		db		10,"Desea jugar nuevamente? digite 's' para reiniciar o 'n' para volver al Menu -> ",0
+	lenPregunta:		equ		$-preguntaTxt
+
+	;-------------------------------------
+	; Variables usadas en la ejecucion.  |
+	;-------------------------------------
+	cicloA:				db		0
+	puntJ1:				dd		0
+	puntJ2:				dd		0
+	puntJ3:				dd		0
+	puntJ4:				dd		0
+	mayor				db		0
+	ganador				db		0
+	resultado: 			times 	16 		db 		0
+	cantJugadores		db		50	
+	modoEscogido:		db		0
+	difCambioLinea:		db		0
+	difCalcPosicion:	db		0
+	simboloLinea:		db		0
+	letras:				db		0
+	numeros:			db		0
+
+	
+	;-------------------------------------
+	; Archivos txt con matrices de juego.|
+	;-------------------------------------
+	archivoJuegoP:		db 		"pequeno.txt",0
+	archivoJuegoM:		db 		"mediano.txt",0
+	archivoJuegoG:		db 		"grande.txt",0
+		
+	;--------------------------------------
+	; Archivo con instrucciones generales.|
+	;--------------------------------------
+	archivoInstruc:		db		"Instrucciones.txt",0
+	
+		
+SECTION .text
+	global _start
+	
+_start:
+	nop
+	
+MenuPrincipal:
+    ; Limpia la pantalla
+    mov ecx,clrScr
+    mov edx,len9
+    call DisplayText
+    
+	; Muestra en pantalla el menu principal y sus opciones.
+	mov ecx, menuPriTxt
+	mov edx, len
+	call DisplayText
+	
+	
+	
+
+
+	Grande:
+		
+		mov cl,21
+		mov byte[difCambioLinea],cl
+		
+		mov cl,133
+		mov byte[difCalcPosicion],cl
+		
+		mov cl,143
+		mov byte[cicloA],cl
+		
+		; Abre el archivo donde esta la matriz del juego.
+		mov	ebx, archivoJuegoG
+		mov	ecx, 0 ; Read only		
+		mov	eax, sys_open
+		int	80h
+		
+	ChequeaError:
+		; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+		test	eax, eax
+		js	ErrorArchivo
+	
+	; Lee la matriz del juego en un buffer.
+	mov		ebx, eax
+	mov		ecx, bufferJuego
+	mov		edx, bufLenJuego
+	mov		eax, sys_read		
+	int 	80h
+	
+
+	
+				
+;******************************************************************************
+; 						-> RUTINAS INTERMEDIAS <-                             *
+;******************************************************************************
+			
+
+Int_to_ascii:					;se mueve el resultado de la suma a numero3
+	mov dword[resultado],0
+	.divisiones_sucesivas:
+
+		xor	edx,edx				;limpia el registro;Trae el valor de la direccion de memoria seleccionada[]
+		mov ecx,10				
+		xor	bx,bx				;limpiar registro para usalrlo como contador de digitos de 16bits
+
+	.division:
+		xor	edx,edx 			;limpia el registro edx
+		div	ecx					
+		push 	dx				;se hace push a dx
+		inc 	bx				;se incrementa bx
+		test 	eax, eax		;test utiliza un AND para hacer la verificacion
+		jnz	.division			;si no es cero repite el proceso
+
+	.acomoda_digitos:
+		mov 	edx,resultado		
+		mov 	cx,bx
+
+	.siguente_digito:
+		pop ax					;recibe los digitos de la fucion division para realizar la suma
+		or al,30h				;se suma 48, numero para convertir de int a ascii
+		mov [edx],byte al		;utiliza edx para modificar los valores 
+		inc edx						
+		loop .siguente_digito	
+
+	.imprime_numero:			;toma el resultado y utiliza el edx como valor para imprmir en pantalla
+		push 	bx				
+		mov	ecx,resultado
+		xor	edx,edx
+		pop	dx
+		inc	dx
+		inc	dx
+	ret
+
+;---------------------------------------------------------------------------
+; Desplega un mensaje de error notificando que no se pudo abrir el archivo |
+; y finaliza la ejecucion.                                                 |
+;---------------------------------------------------------------------------
+ErrorArchivo:
+	mov     ecx, errorArchivoTexto
+	mov		edx, errorArchivoLen
+    call    DisplayText
+	jmp		Fin	
+;--------------------------------------------------------------------
+; Desplega algo en la salida estándar. debe "setearse" lo siguiente:|
+; ecx: el puntero al mensaje a desplegar.                           |
+; edx: el largo del mensaje a desplegar.                            |
+; Modifica los registros eax y ebx.                                 |
+;--------------------------------------------------------------------
+DisplayText:
+	mov eax,sys_write
+	mov ebx,stdout
+	int 80h
+	ret
+;-----------------------------------------------------------------
+; Lee algo de la entrada estándar.debe "setearse" lo siguiente:  |
+; ecx: el puntero al buffer donde se almacenará.                 |
+; edx: el largo del mensaje a leer.	                             |
+;-----------------------------------------------------------------
+ReadText:
+	mov eax,sys_read
+	mov ebx,stdin
+	int 80h
+	ret
+
+;----------------------------------------------------
+; Realiza los movimientos de los valores necesarios |
+; para finalizar la ejecucion del programa.         |
+;----------------------------------------------------
+Fin:
+	; Muestra en consola un mensaje de salida.
+	mov ecx,despedidaTxt
+	mov edx,len3
+	call DisplayText
+	
+	mov eax,sys_exit
+	mov ebx,0
+	int 80h

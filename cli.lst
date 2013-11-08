@@ -1,0 +1,242 @@
+     1                                  ; ***********************************************************************
+     2                                  ; Tarea Programada CLI													*
+     3                                  ; Command Line Interface												*
+     4                                  ; Codigo Nasm															*
+     5                                  ; Prof. Jaime Gutierrez Alfaro											*
+     6                                  ; Arquitectura de computadoras											*
+     7                                  ; Instituto Tecnologico de Costa Rica									*
+     8                                  ; Daniel Solis Mendez													*
+     9                                  ; Melvin Alonso Elizondo Perez											*
+    10                                  ; II Semestre / 2013													*
+    11                                  ; ***********************************************************************
+    12                                  
+    13                                  ; Esto es para hacer el codigo mas legible
+    14                                  sys_exit	equ 1
+    15                                  stdout		equ 1
+    16                                  stdin 		equ 0
+    17                                  sys_read 	equ 3
+    18                                  sys_write 	equ 4
+    19                                  sys_open 	equ 5
+    20                                  
+    21                                  SECTION .bss ; Datos no inicializados.
+    22                                  	
+    23                                  	bufLen		equ 	100 ; Longitud del buffer igual a 10 bytes.
+    24 00000000 <res 00000064>          	buffer 		resb 	bufLen ; Reservamos 10 bytes para los input de las opciones escogidas.
+    25                                  	
+    26                                  	bufLenJug	equ		50 ; Longitud del buffer 50. 	
+    27 00000064 <res 00000032>          	bufferJug1 	resb 	bufLenJug ; \;
+    28 00000096 <res 00000032>          	bufferJug2	resb 	bufLenJug ;  | Reservamos 50 bytes para 
+    29 000000C8 <res 00000032>          	bufferJug3	resb 	bufLenJug ;  | el nombre de cada jugador.
+    30 000000FA <res 00000032>          	bufferJug4	resb 	bufLenJug ; /;
+    31                                  	
+    32                                  	bufLenJuego	equ		1413 ; Longitud para el buffer del juego igual a 1413 bytes.
+    33 0000012C <res 00000585>          	bufferJuego	resb 	bufLenJuego ; Reservamos bufLenJuego bytes.
+    34                                  	
+    35 000006B1 <res 00000001>          	simboloJug	resb	1 ; Reservamos 1 byte para el simbolo de cada jugador.  
+    36                                  	
+    37                                  	bufLenArchivo	equ		1600
+    38 000006B2 <res 00000640>          	bufferArchivo	resb	bufLenArchivo
+    39                                  	
+    40                                  	
+    41                                  SECTION .data ; Datos inicializados
+    42                                  	;----------------------------------------------------
+    43                                  	; Mensajes usados durante la ejecucion del programa.|
+    44                                  	;----------------------------------------------------
+    45                                  
+    46 00000000 4241445341203E2000      	promptTxt:	 		db		"BADSA > ",0
+    47                                  	len: 				equ 	$-promptTxt
+    48 00000009 0A4772616369617320-     	despedidaTxt:		db  	10,'Gracias por usar BADSA CLI! ',10,10
+    49 00000012 706F72207573617220-
+    50 0000001B 424144534120434C49-
+    51 00000024 21200A0A           
+    52                                  	len3:				equ		$-despedidaTxt
+    53                                  	
+    54 00000028 0A4572726F723A206E-     	errorArchivoTexto: 	db 		10,"Error: no se pudo leer el archivo del juego.", 10, 10
+    55 00000031 6F207365207075646F-
+    56 0000003A 206C65657220656C20-
+    57 00000043 6172636869766F2064-
+    58 0000004C 656C206A7565676F2E-
+    59 00000055 0A0A               
+    60                                  	errorArchivoLen:	equ 	$-errorArchivoTexto
+    61                                  	
+    62 00000057 1B5B481B5B324A          	clrScr:				db 		`\33[H\33[2J`
+    63                                  	len9:				equ 	$-clrScr
+    64                                  	
+    65 0000005E 0A00                    	enter:				db		10,0
+    66                                  	lenEnter:			equ		$-enter	
+    67                                  	
+    68                                  
+    69                                  	;-------------------------------------
+    70                                  	; Variables usadas en la ejecucion.  |
+    71                                  	;-------------------------------------
+    72                                  
+    73                                  
+    74                                  	
+    75                                  	;-------------------------------------
+    76                                  	; Archivos txt con matrices de juego.|
+    77                                  	;-------------------------------------
+    78 00000060 70657175656E6F2E74-     	archivoJuegoP:		db 		"pequeno.txt",0
+    79 00000069 787400             
+    80                                  		
+    81                                  	;--------------------------------------
+    82                                  	; Archivo con instrucciones generales.|
+    83                                  	;--------------------------------------
+    84 0000006C 496E73747275636369-     	archivoInstruc:		db		"Instrucciones.txt",0
+    85 00000075 6F6E65732E74787400 
+    86                                  	
+    87                                  		
+    88                                  SECTION .text
+    89                                  	global _start
+    90                                  	
+    91                                  _start:
+    92 00000000 90                      	nop
+    93                                  	
+    94                                  IngresarComando:
+    95                                      ; Limpia la pantalla
+    96 00000001 B9[57000000]                mov ecx,clrScr
+    97 00000006 BA07000000                  mov edx,len9
+    98 0000000B E895000000                  call DisplayText
+    99                                      
+   100 00000010 31C9                        xor ecx,ecx
+   101 00000012 B174                        mov cl,'t' ; Se mueve una t de true para indicar que el ciclo continua.
+   102 00000014 51                          push ecx ; Se guarda el valor para verificar la continuidad del ciclo.
+   103                                      
+   104                                  	; Muestra en pantalla el menu principal y sus opciones.
+   105 00000015 B9[00000000]            	mov ecx, promptTxt
+   106 0000001A BA09000000              	mov edx, len
+   107 0000001F E881000000              	call DisplayText
+   108                                  	
+   109                                      ; Lee la opcion digitada por el usuario.
+   110 00000024 B9[00000000]                mov ecx, buffer
+   111 00000029 BA64000000                  mov        edx, bufLen
+   112 0000002E E87F000000                  call ReadText
+   113                                  		
+   114                                  		
+   115                                  	; Abre el archivo donde esta la matriz del juego.
+   116                                  	;mov	ebx, archivoJuegoG
+   117                                  	;mov	ecx, 0 ; Read only		
+   118                                  	;mov	eax, sys_open
+   119                                  	;int	80h
+   120                                  		
+   121                                  	;ChequeaError:
+   122                                  		; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+   123                                  	;	test	eax, eax
+   124                                  	;	js	ErrorArchivo
+   125                                  	
+   126                                  	; Lee la matriz del juego en un buffer.
+   127                                  	;mov		ebx, eax
+   128                                  	;mov		ecx, bufferJuego
+   129                                  	;mov		edx, bufLenJuego
+   130                                  	;mov		eax, sys_read		
+   131                                  	;int 	80h
+   132                                  	
+   133 00000033 803D[00000000]65        	cmp byte[buffer] , 'e'
+   134 0000003A 7521                    	jne Continuar
+   135 0000003C 803D[01000000]78        	cmp byte[buffer+1] , 'x'
+   136 00000043 7518                    	jne Continuar
+   137 00000045 803D[02000000]69        	cmp byte[buffer+2] , 'i'
+   138 0000004C 750F                    	jne Continuar
+   139 0000004E 803D[03000000]74        	cmp byte[buffer+3] , 't'
+   140 00000055 7506                    	jne Continuar
+   141                                  	
+   142                                  	; Si la instruccion
+   143 00000057 31C9                    	xor ecx,ecx 
+   144 00000059 59                      	pop ecx
+   145 0000005A B166                    	mov cl,'f'
+   146 0000005C 51                      	push ecx
+   147                                  	
+   148                                  	Continuar:
+   149                                  	
+   150 0000005D 31C9                    	xor ecx,ecx 
+   151 0000005F 59                      	pop ecx
+   152 00000060 83F974                  	cmp ecx,'t'
+   153 00000063 749C                    	je IngresarComando
+   154                                  	
+   155 00000065 7558                    	jne Fin
+   156                                  	
+   157                                  				
+   158                                  ;******************************************************************************
+   159                                  ; 						-> RUTINAS INTERMEDIAS <-                             *
+   160                                  ;******************************************************************************
+   161                                  			
+   162                                  
+   163                                  Int_to_ascii:					;se mueve el resultado de la suma a numero3
+   164                                  	;mov dword[resultado],0
+   165                                  	.divisiones_sucesivas:
+   166                                  
+   167 00000067 31D2                    		xor	edx,edx				;limpia el registro;Trae el valor de la direccion de memoria seleccionada[]
+   168 00000069 B90A000000              		mov ecx,10				
+   169 0000006E 6631DB                  		xor	bx,bx				;limpiar registro para usalrlo como contador de digitos de 16bits
+   170                                  
+   171                                  	.division:
+   172 00000071 31D2                    		xor	edx,edx 			;limpia el registro edx
+   173 00000073 F7F1                    		div	ecx					
+   174 00000075 6652                    		push 	dx				;se hace push a dx
+   175 00000077 6643                    		inc 	bx				;se incrementa bx
+   176 00000079 85C0                    		test 	eax, eax		;test utiliza un AND para hacer la verificacion
+   177 0000007B 75F4                    		jnz	.division			;si no es cero repite el proceso
+   178                                  
+   179                                  	.acomoda_digitos:
+   180                                  		;mov 	edx,resultado		
+   181 0000007D 6689D9                  		mov 	cx,bx
+   182                                  
+   183                                  	.siguente_digito:
+   184 00000080 6658                    		pop ax					;recibe los digitos de la fucion division para realizar la suma
+   185 00000082 0C30                    		or al,30h				;se suma 48, numero para convertir de int a ascii
+   186 00000084 8802                    		mov [edx],byte al		;utiliza edx para modificar los valores 
+   187 00000086 42                      		inc edx						
+   188 00000087 E2F7                    		loop .siguente_digito	
+   189                                  
+   190                                  	.imprime_numero:			;toma el resultado y utiliza el edx como valor para imprmir en pantalla
+   191 00000089 6653                    		push 	bx				
+   192                                  		;mov	ecx,resultado
+   193 0000008B 31D2                    		xor	edx,edx
+   194 0000008D 665A                    		pop	dx
+   195 0000008F 6642                    		inc	dx
+   196 00000091 6642                    		inc	dx
+   197 00000093 C3                      	ret
+   198                                  
+   199                                  ;---------------------------------------------------------------------------
+   200                                  ; Desplega un mensaje de error notificando que no se pudo abrir el archivo |
+   201                                  ; y finaliza la ejecucion.                                                 |
+   202                                  ;---------------------------------------------------------------------------
+   203                                  ErrorArchivo:
+   204 00000094 B9[28000000]            	mov     ecx, errorArchivoTexto
+   205 00000099 BA2F000000              	mov		edx, errorArchivoLen
+   206 0000009E E802000000                  call    DisplayText
+   207 000000A3 EB1A                    	jmp		Fin	
+   208                                  ;--------------------------------------------------------------------
+   209                                  ; Desplega algo en la salida estándar. debe "setearse" lo siguiente:|
+   210                                  ; ecx: el puntero al mensaje a desplegar.                           |
+   211                                  ; edx: el largo del mensaje a desplegar.                            |
+   212                                  ; Modifica los registros eax y ebx.                                 |
+   213                                  ;--------------------------------------------------------------------
+   214                                  DisplayText:
+   215 000000A5 B804000000              	mov eax,sys_write
+   216 000000AA BB01000000              	mov ebx,stdout
+   217 000000AF CD80                    	int 80h
+   218 000000B1 C3                      	ret
+   219                                  ;-----------------------------------------------------------------
+   220                                  ; Lee algo de la entrada estándar.debe "setearse" lo siguiente:  |
+   221                                  ; ecx: el puntero al buffer donde se almacenará.                 |
+   222                                  ; edx: el largo del mensaje a leer.	                             |
+   223                                  ;-----------------------------------------------------------------
+   224                                  ReadText:
+   225 000000B2 B803000000              	mov eax,sys_read
+   226 000000B7 BB00000000              	mov ebx,stdin
+   227 000000BC CD80                    	int 80h
+   228 000000BE C3                      	ret
+   229                                  
+   230                                  ;----------------------------------------------------
+   231                                  ; Realiza los movimientos de los valores necesarios |
+   232                                  ; para finalizar la ejecucion del programa.         |
+   233                                  ;----------------------------------------------------
+   234                                  Fin:
+   235                                  	; Muestra en consola un mensaje de salida.
+   236 000000BF B9[09000000]            	mov ecx,despedidaTxt
+   237 000000C4 BA1F000000              	mov edx,len3
+   238 000000C9 E8D7FFFFFF              	call DisplayText
+   239                                  	
+   240 000000CE B801000000              	mov eax,sys_exit
+   241 000000D3 BB00000000              	mov ebx,0
+   242 000000D8 CD80                    	int 80h
