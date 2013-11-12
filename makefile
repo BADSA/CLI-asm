@@ -1,6 +1,6 @@
+FileName = cli
+$(FileName): $(FileName).o
+	ld -m elf_i386 -o $(FileName) $(FileName).o
 
-cli: cli.o
-	ld -m elf_i386 -o cli cli.o
-
-cli.o: cli.asm
-	nasm -f elf -g -F stabs cli.asm -l cli.lst
+$(FileName).o: $(FileName).asm
+	nasm -f elf -g -F stabs $(FileName).asm -l $(FileName).lst
