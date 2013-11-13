@@ -1,3 +1,0 @@
-50 path=CLI-asm/Ayuda/referencias (3ª copia).txt
-27 mtime=1384243602.261201
-27 atime=1384278602.958435
