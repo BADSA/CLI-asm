@@ -1,0 +1,20 @@
+
+Toma dos archivos y los compara línea por línea.
+
+Modo de empleo:
+BADSA > comparar [--ayuda] nombre-archivo-1 nombre-archivo-2
+	--ayuda		muestra esta ayuda y finaliza.
+
+Argumentos entre [] son opcionales, los demas son obligatorios.
+
+Ejemplo:
+
+   comparar a.txt b.txt		Compara "a.txt" con "b.txt" y 
+				muestra en consola los numeros de
+			   	linea donde son diferentes. 
+				(siempre que los archivos existan)
+
+[ENTER]
+
+
+

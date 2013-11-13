@@ -22,7 +22,9 @@ sys_open 	equ 5
 
 %define sys_unlink 10
 %define sys_link 9
-%define sys_rename 26
+%define sys_creat 8
+%define sys_rename 38
+%define sys_close 6
 
 SECTION .bss ; Datos no inicializados.
 	
@@ -72,8 +74,11 @@ SECTION .data ; Datos inicializados
 	msg_success:		db		10,"Operacion realizada satisfactoriamente :]",10
 	lenSuccess:			equ		$-msg_success
 	
-	pregunta:			db		10,"Esta seguro que desea eliminar el archivo? s/n",10,"-> "
-	lenPregunta:		equ		$-pregunta
+	pregBorrar:			db		10,"Esta seguro que desea eliminar el archivo? s/n",10,"-> "
+	lenPregBorrar:		equ		$-pregBorrar
+	
+	pregRenom:			db		10,"Esta seguro que desea renombrar el archivo? s/n",10,"-> "
+	lenPregRenom:		equ		$-pregRenom
 	
 	;-------------------------------------
 	; Variables usadas en la ejecucion.  |
@@ -82,7 +87,11 @@ SECTION .data ; Datos inicializados
 	;-------------------------------------
 	; Archivos txt con matrices de juego.|
 	;-------------------------------------
-	archivoJuegoP:		db 		"pequeno.txt",0
+	ayudaMostrarTxt:		db 		"Ayuda/mostrar.ayuda",0
+	ayudaBorrarTxt:			db 		"Ayuda/borrar.ayuda",0
+	ayudaRenombrarTxt:		db 		"Ayuda/renombrar.ayuda",0
+	ayudaCopiarTxt:			db 		"Ayuda/copiar.ayuda",0
+	ayudaCompararTxt:		db 		"Ayuda/comparar.ayuda",0
 		
 	
 		
@@ -192,8 +201,13 @@ ComprobarMostrar:
 	jne ErrorComando
 	cmp byte[buffer+6] , 'r'
 	jne ErrorComando
+	cmp byte[buffer+7] , 10
+	je Ayudas
 	cmp byte[buffer+7] , ' '
 	jne ErrorComando
+	cmp byte[buffer+8] , '-'
+	mov ebx,9
+	je ComprobarAyuda
 
 	; Lee el nombre del archivo que se quiere mostrar.
 	.leerNombreArchivo:
@@ -250,8 +264,13 @@ ComprobarBorrar:
 	jne ErrorComando
 	cmp byte[buffer+5] , 'r'
 	jne ErrorComando
+	cmp byte[buffer+6] , 10
+	je Ayudas
 	cmp byte[buffer+6] , ' '
 	jne ErrorComando
+	cmp byte[buffer+7] , '-'
+	mov ebx,8
+	je ComprobarAyuda
 
 	; Lee el nombre del archivo que se quiere borrar.
 	.leerNombreArchivo:
@@ -260,18 +279,25 @@ ComprobarBorrar:
 		.ciclo:
 			cmp byte[buffer+ecx],10
 			je BorrarArchivo
+			cmp byte[buffer+ecx],' '
+			je PosibleForzado
 			mov al,byte[buffer+ecx]
 			mov byte[bufferNomArchivo + ecx - 7] , al
 			inc ecx
 			jmp .ciclo
+	
+	PosibleForzado:
+			call ComprobarForzado
+			je NoPreguntaBorrar
+		
 	
 	;--------------------------------
 	; Pasos para borrar el archivo. |
 	;--------------------------------
 	BorrarArchivo:
 		; Pregunta si esta seguro que desea borrar.
-		mov edx,lenPregunta
-		mov ecx,pregunta
+		mov edx,lenPregBorrar
+		mov ecx,pregBorrar
 		call DisplayText
 		
 		; Lee la opcion escogida.
@@ -279,35 +305,36 @@ ComprobarBorrar:
 		
 		cmp byte[buffer],'s'
 		jne Continuar
-
-		; Se dispone a borrar si la opcion fue 's'
-		mov edx, lenBorrando
-		mov ecx, msgBorrando
-		call DisplayText
 		
-		; Se intenta borrar el archivo.
-		mov ebx, bufferNomArchivo
-		mov eax, sys_unlink
-		int 0x80
-		cmp eax, 0
-		je .sucess
-		
-		; Mensaje de no se pudo borrar el archivo.
-		.fail:
-		mov ecx, msg_fail
-		mov edx,lenFail
-		call DisplayText
-		jmp .Done
-		
-		; Mensaje de el borrado fue exitoso.
-		.sucess:
-		mov ecx,msg_success
-		mov edx,lenSuccess
-		call DisplayText
-		
-		; Simula la espera de un ENTER.
-		.Done:
-			call LeerComando
+		NoPreguntaBorrar:
+			; Se dispone a borrar si la opcion fue 's'
+			mov edx, lenBorrando
+			mov ecx, msgBorrando
+			call DisplayText
+			
+			; Se intenta borrar el archivo.
+			mov ebx, bufferNomArchivo
+			mov eax, sys_unlink
+			int 0x80
+			cmp eax, 0
+			je .sucess
+			
+			; Mensaje de no se pudo borrar el archivo.
+			.fail:
+				mov ecx, msg_fail
+				mov edx,lenFail
+				call DisplayText
+				jmp .Done
+			
+			; Mensaje de el borrado fue exitoso.
+			.sucess:
+				mov ecx,msg_success
+				mov edx,lenSuccess
+				call DisplayText
+			
+			; Simula la espera de un ENTER.
+			.Done:
+				call LeerComando
 		
 		jmp Continuar
 
@@ -332,27 +359,36 @@ ComprobarRenombrar:
 	jne ErrorComando
 	cmp byte[buffer+8] , 'r'
 	jne ErrorComando
+	cmp byte[buffer+9] , 10
+	je Ayudas
 	cmp byte[buffer+9] , ' '
 	jne ErrorComando
-
-	_LeerNombreArchivo:
+	cmp byte[buffer+10] , '-'
+	mov ebx,11
+	je ComprobarAyuda
+	
+	; Lee el nombre del archivo que se quiere renombrar.
+	leerNombreArchivo1:
 		mov ecx, 10
 		xor eax,eax
 		.ciclo:
 			cmp byte[buffer+ecx],' '
-			je _LeerNombreArchivo2
+			je leerNombreArchivo2
 			mov al,byte[buffer+ecx]
 			mov byte[bufferNomArchivo + ecx - 10] , al
 			inc ecx
 			jmp .ciclo
 
-	_LeerNombreArchivo2:
+	; Lee el nuevo nombre que se desea poner.
+	leerNombreArchivo2:
 		inc	ecx
 		mov ebx, ecx
 		xor eax,eax
 		.ciclo:
 			cmp byte[buffer+ecx],10
 			je RenArchivo
+			cmp byte[buffer+ecx],' '
+			je PosibleForzado2
 			mov al,byte[buffer+ecx]
 			push ecx
 			sub ecx,ebx
@@ -360,34 +396,60 @@ ComprobarRenombrar:
 			pop ecx
 			inc ecx
 			jmp .ciclo
-			
+	
+	PosibleForzado2:
+		call ComprobarForzado
+		je NoPreguntaRen
+	
+	
+	;-----------------------------------		
+	; Pasos para renombrar el archivo. |
+	;-----------------------------------
 	RenArchivo:
 
-
-	mov ebx, bufferNomArchivo             ; File name Root
-	mov eax, sys_rename          ; Specify sys_creat call
-	mov ecx, bufferNomArchivo2              ; new name
-	int 0x80                    ; Make kernel call
-	cmp eax, 0
-	jle .sucess 	
-
-	.fail:
-	mov ecx, msg_fail
-	mov edx,lenFail
-	call DisplayText
-	jmp .Done
-
-	.sucess:
-	mov ecx,msg_success
-	mov edx,lenSuccess
-	call DisplayText
-
-	.Done:
-		call EsperaEnter
-
-	jmp Continuar
+		; Pregunta si esta seguro que desea renombrar.
+		mov edx,lenPregRenom
+		mov ecx,pregRenom
+		call DisplayText
+		
+		; Lee la opcion escogida.
+		call LeerComando
+		
+		cmp byte[buffer],'s'
+		jne Continuar
 	
+		NoPreguntaRen:
+			
+			; DEBERIA SERVIR PERO NO SIRVE
+			mov ebx, bufferNomArchivo             
+			mov eax, sys_rename          
+			mov ecx, bufferNomArchivo2              
+			int 80h                    
+			cmp eax, 0
+			jle .sucess 	
+			
+			; Mostrar mensaje de no se pudo completar.
+			.fail:
+				mov ecx, msg_fail
+				mov edx,lenFail
+				call DisplayText
+				jmp .Done
+				
+			; Mostrar mensaje de operacion exitosa.	
+			.sucess:
+				mov ecx,msg_success
+				mov edx,lenSuccess
+				call DisplayText
+			
+			; Simular espera por ENTER
+			.Done:
+				call LeerComando
+
+		jmp Continuar
 	
+;---------------------------------------
+; Se distingue entre Copiar y Comparar |
+;---------------------------------------
 ComprobarCopiarOComparar:
 	cmp byte[buffer+2] , 'p'
 	je ComprobarCopiar
@@ -408,21 +470,28 @@ ComprobarCopiar:
 	jne ErrorComando
 	cmp byte[buffer+5] , 'r'
 	jne ErrorComando
+	cmp byte[buffer+6] , 10
+	je Ayudas
 	cmp byte[buffer+6] , ' '
 	jne ErrorComando
+	cmp byte[buffer+7] , '-'
+	mov ebx,8
+	je ComprobarAyuda
 
-	_LeerNombreArchivo3:
+	; Lee el nombre del archivo que se quiere copiar.
+	_LeerNombreArchivo:
 		mov ecx, 7
 		xor eax,eax
 		.ciclo:
 			cmp byte[buffer+ecx],' '
-			je _LeerNombreArchivo4
+			je _LeerNombreArchivo2
 			mov al,byte[buffer+ecx]
 			mov byte[bufferNomArchivo + ecx - 7] , al
 			inc ecx
 			jmp .ciclo
-
-	_LeerNombreArchivo4:
+	
+	; Lee el nombre que se quiere asignar a la copia.
+	_LeerNombreArchivo2:
 		inc	ecx
 		mov ebx, ecx
 		xor eax,eax
@@ -437,31 +506,38 @@ ComprobarCopiar:
 			inc ecx
 			jmp .ciclo
 			
+			
+	;-----------------------------------		
+	; Pasos para copiar el archivo.    |
+	;-----------------------------------
 	CopiarArchivo:
-	
-	
-	; COPY		
-	mov ebx, bufferNomArchivo             ; File name Root
-	mov eax, sys_link          ; Specify sys_creat call
-	mov ecx, bufferNomArchivo2              ; permission (rwxrwxrwx)
-	int 0x80                    ; Make kernel call
-	cmp eax, 0
-	jle .sucess                   ; IF EAX is less or equal than zero
-                                    ; THEN jump to EXIT
-	.fail:
-	mov ecx, msg_fail
-	mov edx,lenFail
-	call DisplayText
-	jmp .Done
+		
+		; Intenta copiar el archivo	
+		mov ebx, bufferNomArchivo             
+		mov eax, sys_link          
+		mov ecx, bufferNomArchivo2              
+		int 0x80                    
+		cmp eax, 0
+		jle .sucess               
+		
+		; Mostrar mensaje de no se pudo completar.
+		.fail:
+			mov ecx, msg_fail
+			mov edx,lenFail
+			call DisplayText
+			jmp .Done
 
-	.sucess:
-	mov ecx,msg_success
-	mov edx,lenSuccess
-	call DisplayText
+		; Mostrar mensaje de operacion exitosa.
+		.sucess:
+			mov ecx,msg_success
+			mov edx,lenSuccess
+			call DisplayText
 
-	.Done:
-		call EsperaEnter
-	jmp Continuar
+		; Espera por ENTER
+		.Done:
+			call LeerComando
+			
+		jmp Continuar
 
 
 ;----------------------------------------------------------------------------------------
@@ -479,14 +555,154 @@ ComprobarComparar:
 	jne ErrorComando	
 	cmp byte[buffer+7] , 'r'
 	jne ErrorComando	
+	cmp byte[buffer+8] , 10
+	je Ayudas
 	cmp byte[buffer+8] , ' '
 	jne ErrorComando
+	cmp byte[buffer+9] , '-'
+	mov ebx,10
+	je ComprobarAyuda
 	
 	mov ecx,bien
 	mov edx,lenBien
 	call DisplayText
-	jmp Fin	
+	call LeerComando
+	jmp Continuar
 	
+
+;----------------------------------------------
+; Verifica las letras restantes para "ayuda". |
+;----------------------------------------------
+ComprobarAyuda:
+	cmp byte[buffer+ebx] , '-'
+	jne ErrorComando
+	inc ebx
+	cmp byte[buffer+ebx] , 'a'
+	jne ErrorComando
+	inc ebx
+	cmp byte[buffer+ebx] , 'y'
+	jne ErrorComando
+	inc ebx
+	cmp byte[buffer+ebx] , 'u'
+	jne ErrorComando	
+	inc ebx
+	cmp byte[buffer+ebx] , 'd'
+	jne ErrorComando	
+	inc ebx
+	cmp byte[buffer+ebx] , 'a'
+	jne ErrorComando	
+
+;--------------------------------------------
+; Abre el archivo correspondiente de ayuda  |
+; segun el comando ingresado.               |
+;--------------------------------------------
+Ayudas:
+	cmp byte[buffer] , 'm'
+	je ayudaMostrar
+	cmp byte[buffer] , 'b'
+	je ayudaBorrar
+	cmp byte[buffer] , 'r'
+	je ayudaRenombrar
+	cmp byte[buffer+2] , 'p'
+	je ayudaCopiar
+
+	ayudaComparar:
+		; Abre el archivo donde esta la ayuda de comparar.
+		mov	ebx, ayudaCompararTxt
+		mov	ecx, 0 ; Read only		
+		mov	eax, sys_open
+		int	80h	
+		jmp _chequeaError
+
+	ayudaMostrar:
+		; Abre el archivo donde esta la ayuda de mostrar.
+		mov	ebx, ayudaMostrarTxt
+		mov	ecx, 0 ; Read only		
+		mov	eax, sys_open
+		int	80h
+		jmp _chequeaError
+
+	ayudaBorrar:
+		; Abre el archivo donde esta la ayuda de borrar.
+		mov	ebx, ayudaBorrarTxt
+		mov	ecx, 0 ; Read only		
+		mov	eax, sys_open
+		int	80h
+		jmp _chequeaError
+
+	ayudaRenombrar:
+		; Abre el archivo donde esta la ayuda de renombrar.
+		mov	ebx, ayudaRenombrarTxt
+		mov	ecx, 0 ; Read only		
+		mov	eax, sys_open
+		int	80h
+		jmp _chequeaError
+		
+	ayudaCopiar:
+		; Abre el archivo donde esta la ayuda de copiar.
+		mov	ebx, ayudaCopiarTxt
+		mov	ecx, 0 ; Read only		
+		mov	eax, sys_open
+		int	80h
+	
+			
+	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo.
+	_chequeaError:
+		test	eax, eax
+		js	ErrorArchivo
+
+	; Sino ocurrio error, entonces se lee el archivo en un buffer.
+	mov		ebx, eax
+	mov		ecx, bufferArchivo
+	mov		edx, bufLenArchivo
+	mov		eax, sys_read		
+	int 	80h
+	
+	; Se imprime en pantalla el archivo de ayuda.
+	mov ecx,bufferArchivo
+	mov edx,bufLenArchivo
+	call DisplayText
+		
+	
+	; Espera por un ENTER
+	call LeerComando
+	jmp Continuar
+
+;-------------------------------------------------------------------------
+; Comprueba si el argumento "--forzado" fue digitado de manera correcta. |
+;-------------------------------------------------------------------------
+ComprobarForzado:
+	inc ecx
+	cmp byte[buffer+ecx],'-'
+	jne Ayudas
+	inc ecx
+	cmp byte[buffer+ecx],'-'
+	jne Ayudas
+	inc ecx
+	cmp byte[buffer+ecx],'f'
+	jne Ayudas
+	inc ecx
+	cmp byte[buffer+ecx],'o'
+	jne Ayudas
+	inc ecx
+	cmp byte[buffer+ecx],'r'
+	jne Ayudas
+	inc ecx
+	cmp byte[buffer+ecx],'z'
+	jne Ayudas
+	inc ecx
+	cmp byte[buffer+ecx],'a'
+	jne Ayudas
+	inc ecx
+	cmp byte[buffer+ecx],'d'
+	jne Ayudas
+	inc ecx
+	cmp byte[buffer+ecx],'o'
+	jne Ayudas
+	ret
+
+
+
 	
 ;**********************************************************************************************************************
 ; 												-> RUTINAS INTERMEDIAS <-                                             *

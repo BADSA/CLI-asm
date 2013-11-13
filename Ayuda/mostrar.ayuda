@@ -1,0 +1,15 @@
+
+Muestra en la salida estándar el contenido de un archivo.
+
+Modo de empleo:
+BADSA > mostrar [--ayuda] nombre-archivo
+	--ayuda		muestra esta ayuda y finaliza.
+
+Argumentos entre [] son opcionales, los demas son obligatorios.
+
+Ejemplo:
+
+   mostrar arc.txt	Muestra el contenido de arc.txt en consola.
+			(siempre que el archivo exista)
+
+[ENTER]

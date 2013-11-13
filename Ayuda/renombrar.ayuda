@@ -1,0 +1,16 @@
+
+Modifica el nombre de un archivo.
+
+Modo de empleo:
+BADSA > renombrar [--ayuda] nombre-archivo-original nombre-archivo-nuevo [--forzado]
+	--forzado	renombra el archivo sin solicitar la confirmación.
+	--ayuda		muestra esta ayuda y finaliza.
+
+Argumentos entre [] son opcionales, los demas son obligatorios.
+
+Ejemplo:
+
+   renombrar a.txt b.txt	Renombra el archivo "a.txt" a "b.txt".
+			   	(siempre que el archivo exista)
+
+[ENTER]
