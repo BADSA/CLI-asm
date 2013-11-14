@@ -38,6 +38,10 @@ SECTION .bss ; Datos no inicializados.
 	bufLenArchivo		equ		1600 ; Tamano para leer el archivo en memoria.
 	bufferArchivo		resb	bufLenArchivo 
 	
+	bufLenArchivo2		equ		1600 ; Tamano para leer el archivo en memoria.
+	bufferArchivo2		resb	bufLenArchivo2 
+	
+	
 	
 SECTION .data ; Datos inicializados
 	;----------------------------------------------------
@@ -80,10 +84,21 @@ SECTION .data ; Datos inicializados
 	pregRenom:			db		10,"Esta seguro que desea renombrar el archivo? s/n",10,"-> "
 	lenPregRenom:		equ		$-pregRenom
 	
+	archivoIgualesTxt:			db		"Los archivos son iguales en contenido",10
+	lenArchivoIguales:		equ		$-archivoIgualesTxt
+	
+	archivoDiferenteTxt:			db		"Los archivos son diferentes en las lineas:",10
+	lenArchivoDiferente:		equ		$-archivoDiferenteTxt
+	
 	;-------------------------------------
 	; Variables usadas en la ejecucion.  |
 	;-------------------------------------
-
+	contador: 			db 		1
+	cuentaLineas: 		db 		0
+	indexBuffer: 		dd 		0
+	cantLineas:			dd		0
+	resultado:  		times  16 dd 0;
+	
 	;-------------------------------------
 	; Archivos txt con matrices de juego.|
 	;-------------------------------------
@@ -92,6 +107,7 @@ SECTION .data ; Datos inicializados
 	ayudaRenombrarTxt:		db 		"Ayuda/renombrar.ayuda",0
 	ayudaCopiarTxt:			db 		"Ayuda/copiar.ayuda",0
 	ayudaCompararTxt:		db 		"Ayuda/comparar.ayuda",0
+	
 		
 	
 		
@@ -221,7 +237,7 @@ ComprobarMostrar:
 			inc ecx
 			jmp .ciclo 
 
-	; Abre el archivo donde esta la matriz del juego.
+	; Abre el archivo que se quiere mostrar
 	AbrirArchivo:
 	mov	ebx, bufferNomArchivo
 	mov	ecx, 0 ; Read only		
@@ -420,7 +436,7 @@ ComprobarRenombrar:
 	
 		NoPreguntaRen:
 			
-			; DEBERIA SERVIR PERO NO SIRVE
+			; Renombrar archivo
 			mov ebx, bufferNomArchivo             
 			mov eax, sys_rename          
 			mov ecx, bufferNomArchivo2              
@@ -563,11 +579,194 @@ ComprobarComparar:
 	mov ebx,10
 	je ComprobarAyuda
 	
-	mov ecx,bien
-	mov edx,lenBien
-	call DisplayText
-	call LeerComando
-	jmp Continuar
+	; Lee el nombre del archivo que se quiere renombrar.
+	leerNombreArchivoCmp1:
+		mov ecx, 9
+		xor eax,eax
+		.ciclo:
+			cmp byte[buffer+ecx],' '
+			je leerNombreArchivoCmp2
+			mov al,byte[buffer+ecx]
+			mov byte[bufferNomArchivo + ecx - 9] , al
+			inc ecx
+			jmp .ciclo
+
+	; Lee el nuevo nombre que se desea poner.
+	leerNombreArchivoCmp2:
+		inc	ecx
+		mov ebx, ecx
+		xor eax,eax
+		.ciclo:
+			cmp byte[buffer+ecx],10
+			je CompArchivos
+			mov al,byte[buffer+ecx]
+			push ecx
+			sub ecx,ebx
+			mov byte[bufferNomArchivo2 + ecx] , al
+			pop ecx
+			inc ecx
+			jmp .ciclo
+		
+
+CompArchivos:
+	.AbrirArchivo:
+	mov	ebx, bufferNomArchivo
+	mov	ecx, 0 ; Read only		
+	mov	eax, sys_open
+	int	80h
+		
+	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+	.ChequeaError:
+		test	eax, eax
+		js	ErrorArchivo
+
+	; Sino ocurrio error, entonces se lee el archivo en un buffer.
+	mov		ebx, eax
+	mov		ecx, bufferArchivo
+	mov		edx, bufLenArchivo
+	mov		eax, sys_read		
+	int 	80h
+	
+	mov	ebx, bufferNomArchivo2
+	mov	ecx, 0 ; Read only		
+	mov	eax, sys_open
+	int	80h
+		
+	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+	.ChequeaError2:
+		test	eax, eax
+		js	ErrorArchivo
+
+	; Sino ocurrio error, entonces se lee el archivo en un buffer.
+	mov		ebx, eax
+	mov		ecx, bufferArchivo2
+	mov		edx, bufLenArchivo2
+	mov		eax, sys_read		
+	int 	80h
+	
+	mov byte[contador],1
+	xor ecx,ecx
+	xor eax,eax
+	xor ebx,ebx
+	xor edx,edx
+	
+	.comparar:
+		mov dl,byte[bufferArchivo+ecx]
+		mov bl,byte[bufferArchivo2+eax]
+		cmp dl,bl
+		jne .agregarMensajeLinea
+		cmp dl,0
+		je .termina1
+		cmp bl,0
+		je .termina2
+		cmp bl,10
+		je .continuaArchivo1
+		cmp dl,10
+		je .continuaArchivo2
+		cmp dl,bl
+		je .continua
+			
+	.continuaArchivo1:
+		mov dl,byte[bufferArchivo+ecx]
+		cmp edx,0
+		je .termina1
+		cmp edx,10
+		je .aumentarLinea
+		inc ecx
+		jmp .continuaArchivo1
+		
+	.continuaArchivo2:
+		mov bl,byte[bufferArchivo2+eax]
+		cmp ebx,0
+		je .termina2
+		cmp ebx,10
+		je .aumentarLinea
+		inc eax
+		jmp .continuaArchivo2
+		
+	.continuaArchivo1Aux:
+		mov dl,byte[bufferArchivo+ecx]
+		cmp dl,0
+		je .termina1
+		cmp dl,10
+		je .continuaArchivo2Aux
+		inc ecx
+		jmp .continuaArchivo1Aux
+	
+	.continuaArchivo2Aux:
+		mov bl,byte[bufferArchivo2+eax]
+		cmp bl,0
+		je .termina2
+		cmp bl,10
+		je .aumentarLinea
+		inc eax
+		jmp .continuaArchivo2Aux
+	
+	.continua:
+		inc ecx
+		inc eax
+		jmp .comparar
+		
+	.aumentarLinea:
+		
+		xor edx,edx
+		mov edx,dword[contador]
+		inc edx
+		mov dword[contador],edx
+		jmp .continua
+		
+	.agregarMensajeLinea:
+		push eax
+		push ecx
+		mov al,byte[cantLineas]
+		cmp al,1
+		je .agregarLinea
+		
+		mov ecx,archivoDiferenteTxt
+		mov edx,lenArchivoDiferente
+		call DisplayText
+		
+		jmp .agregarLinea
+
+		
+	.agregarLinea:
+		mov byte[cantLineas],1
+		mov eax,dword[contador]
+		call Int_to_ascii
+		call DisplayText
+		pop ecx
+		pop eax
+		jmp .continuaArchivo1Aux
+		
+	.termina1:
+		mov al,byte[cantLineas]
+		cmp al,1
+		je .fin
+		cmp bl,0
+		je .finIgual
+		jne .fin
+		
+	.termina2:
+		mov al,byte[cantLineas]
+		cmp al,1
+		je .fin
+		cmp dl,0
+		je .finIgual
+		jne .fin
+		
+	.finIgual:		
+		mov edx,lenArchivoIguales
+		mov ecx,archivoIgualesTxt
+		call DisplayText
+		call ReadText
+		jmp Continuar
+	
+	.fin:
+		call ReadText
+		call ReadText
+		jmp Continuar
+	
+	
 	
 
 ;----------------------------------------------
@@ -764,3 +963,43 @@ Fin:
 	mov eax,sys_exit
 	mov ebx,0
 	int 80h
+	
+Int_to_ascii:					;se mueve el resultado de la suma a numero3
+	mov dword[resultado],0
+	.divisiones_sucesivas:
+
+		xor	edx,edx				;limpia el registro;Trae el valor de la direccion de memoria seleccionada[]
+		mov ecx,10				
+		xor	bx,bx				;limpiar registro para usalrlo como contador de digitos de 16bits
+
+	.division:
+		xor	edx,edx 			;limpia el registro edx
+		div	ecx					
+		push 	dx				;se hace push a dx
+		inc 	bx				;se incrementa bx
+		test 	eax, eax		;test utiliza un AND para hacer la verificacion
+		jnz	.division			;si no es cero repite el proceso
+
+	.acomoda_digitos:
+		mov 	edx,resultado		
+		mov 	cx,bx
+
+	.siguente_digito:
+		pop ax					;recibe los digitos de la fucion division para realizar la suma
+		or al,30h				;se suma 48, numero para convertir de int a ascii
+		mov [edx],byte al		;utiliza edx para modificar los valores 
+		inc edx						
+		loop .siguente_digito	
+	
+	.agrega_cambiodelinea:
+	mov [edx],byte 0ah
+
+	.imprime_numero:			;toma el resultado y utiliza el edx como valor para imprmir en pantalla
+		push bx				
+		mov	ecx,resultado
+		xor	edx,edx
+		pop	dx
+		inc	dx
+		inc	dx
+	ret
+	
