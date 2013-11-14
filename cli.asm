@@ -84,11 +84,17 @@ SECTION .data ; Datos inicializados
 	pregRenom:			db		10,"Esta seguro que desea renombrar el archivo? s/n",10,"-> "
 	lenPregRenom:		equ		$-pregRenom
 	
-	archivoIgualesTxt:			db		"Los archivos son iguales en contenido",10
+	archivoIgualesTxt:		db		"Los archivos son iguales en contenido",10
 	lenArchivoIguales:		equ		$-archivoIgualesTxt
 	
-	archivoDiferenteTxt:			db		"Los archivos son diferentes en las lineas:",10
-	lenArchivoDiferente:		equ		$-archivoDiferenteTxt
+	archivoDiferenteTxt:	db		"Los archivos son diferentes en las lineas:",10
+	lenArchivoDiferente:	equ		$-archivoDiferenteTxt
+	
+	archivo1Txt:				db "Hasta este punto el archivo 1 no contiene mas informacion",10
+	lenArchivo1Txt:			equ $-archivo1Txt
+	
+	archivo2Txt:				db "Hasta este punto el archivo 2 no contiene mas informacion",10
+	lenArchivo2Txt:			equ $-archivo2Txt
 	
 	;-------------------------------------
 	; Variables usadas en la ejecucion.  |
@@ -653,12 +659,12 @@ CompArchivos:
 	.comparar:
 		mov dl,byte[bufferArchivo+ecx]
 		mov bl,byte[bufferArchivo2+eax]
-		cmp dl,bl
-		jne .agregarMensajeLinea
 		cmp dl,0
 		je .termina1
 		cmp bl,0
 		je .termina2
+		cmp dl,bl
+		jne .agregarMensajeLinea
 		cmp bl,10
 		je .continuaArchivo1
 		cmp dl,10
@@ -741,18 +747,29 @@ CompArchivos:
 	.termina1:
 		mov al,byte[cantLineas]
 		cmp al,1
-		je .fin
+		je .msjArchivo2
 		cmp bl,0
 		je .finIgual
-		jne .fin
+	
+	.msjArchivo1:
+		mov ecx,archivo2Txt
+		mov edx,lenArchivo2Txt
+		call DisplayText
+		jmp .fin
 		
 	.termina2:
 		mov al,byte[cantLineas]
 		cmp al,1
-		je .fin
+		je .msjArchivo1
 		cmp dl,0
 		je .finIgual
-		jne .fin
+	
+	.msjArchivo2:
+		mov ecx,archivo1Txt
+		mov edx,lenArchivo1Txt
+		call DisplayText
+		
+		jmp .fin
 		
 	.finIgual:		
 		mov edx,lenArchivoIguales
@@ -763,8 +780,7 @@ CompArchivos:
 	
 	.fin:
 		call ReadText
-		call ReadText
-		jmp Continuar
+		jmp IngresarComando
 	
 	
 	
