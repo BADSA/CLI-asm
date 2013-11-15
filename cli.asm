@@ -655,7 +655,11 @@ CompArchivos:
 	xor eax,eax
 	xor ebx,ebx
 	xor edx,edx
-	
+
+;----------------------------------------------------------------------------		
+;	Ciclo principal en la etapa de comparar las lineas de los archivos  	|	
+;----------------------------------------------------------------------------
+
 	.comparar:
 		mov dl,byte[bufferArchivo+ecx]
 		mov bl,byte[bufferArchivo2+eax]
@@ -671,6 +675,11 @@ CompArchivos:
 		je .continuaArchivo2
 		cmp dl,bl
 		je .continua
+
+;ciclo mueve el ecx al proximo enter, siendo ecx el indice del buffer con
+;la informacion del archivo
+;recorriendo la linea hasta el final para continuar
+;al terminar binca a la parte donde se aumenta el contador de lineas
 			
 	.continuaArchivo1:
 		mov dl,byte[bufferArchivo+ecx]
@@ -680,7 +689,11 @@ CompArchivos:
 		je .aumentarLinea
 		inc ecx
 		jmp .continuaArchivo1
-		
+
+;ciclo mueve el eax al proximo enter, siendo ecx el indice del buffer con
+;la informacion del archivo numero 2
+;recorriendo la linea hasta el final para continuar
+;al terminar binca a la parte donde se aumenta el contador de lineas
 	.continuaArchivo2:
 		mov bl,byte[bufferArchivo2+eax]
 		cmp ebx,0
@@ -689,6 +702,13 @@ CompArchivos:
 		je .aumentarLinea
 		inc eax
 		jmp .continuaArchivo2
+
+;Funciones auxiliares de la funcion agregar linea;
+;cuando se imprime en cual linea de los archivos hay diferencias,
+;entonces se recorren los dos archivos hasta el enter mas cercano
+;incrementando el eax y ecx que son los indices para moverse por 
+;los diferentes archivos
+;NOTA: Comentario para Auxiliar 2 tambien.
 		
 	.continuaArchivo1Aux:
 		mov dl,byte[bufferArchivo+ecx]
@@ -707,19 +727,32 @@ CompArchivos:
 		je .aumentarLinea
 		inc eax
 		jmp .continuaArchivo2Aux
-	
+
+;Fucion que incrementa los indices de los archivos
+;se le delega este paso a una sola funcion ya que es necesario
+;utilizarla desde diferentes funciones dentro de la Funcionalidad del
+;comando comparar
+;Se retorna al ciclo principal para seguir comparando
+
 	.continua:
 		inc ecx
 		inc eax
 		jmp .comparar
 		
+;ciclo para aumentar el contador de lineas
+;Lleva la cuneta de la linea actual en proceso
+;se incrementa cada vez que los archivos juntos salten de linea
+
 	.aumentarLinea:
-		
 		xor edx,edx
 		mov edx,dword[contador]
 		inc edx
 		mov dword[contador],edx
 		jmp .continua
+
+;Etiqueta para agregar msj cuando los archivos son diferentes
+;si se ah puesto el msj lo pone y si ya esta puesto entonces continau
+;a agregar la linea donde se dio el cambio
 		
 	.agregarMensajeLinea:
 		push eax
@@ -734,6 +767,7 @@ CompArchivos:
 		
 		jmp .agregarLinea
 
+;se muestra en pantalla la linea donde se genero el cambio entre los archivos
 		
 	.agregarLinea:
 		mov byte[cantLineas],1
