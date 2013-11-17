@@ -58,15 +58,12 @@ SECTION .data ; Datos inicializados
 	errorArchivoLen:	equ 	$-errorArchivoTexto
 	
 	clrScr:				db 		`\33[H\33[2J`
-	len9:				equ 	$-clrScr
+	len9:				equ 	$-clrScr	
 	
-	enter:				db		10,0
-	lenEnter:			equ		$-enter	
-	
-	bien:				db		"bien",10
-	lenBien:			equ		$-bien
-
-	errorComando:		db		10, "ERROR:",10,"No existe comando con ese nombre.",10,"ENTER para continuar",10
+	errorComando:		db		10, "ERROR:",10,
+						db		"Comando no valido.",10
+						db		"ENTER para continuar",10
+								
 	lenErrorComando:	equ		$-errorComando
 	
 	msgBorrando:		db		10,"Borrando el archivo...",10
@@ -96,6 +93,32 @@ SECTION .data ; Datos inicializados
 	archivo2Txt:				db "Hasta este punto el archivo 2 no contiene mas informacion",10
 	lenArchivo2Txt:			equ $-archivo2Txt
 	
+	; Borrar first help
+	borrarFhTxt:			db	"borrar: falta un fichero como operando",10
+							db	"Digite 'borrar --ayuda' para mas informacion.",10
+	borrarFhLen:			equ	$-borrarFhTxt
+
+	; Mostrar first help
+	mostrarFhTxt:			db	"mostrar: falta un fichero como operando",10
+							db	"Digite 'mostrar --ayuda' para mas informacion.",10
+	mostrarFhLen:			equ	$-mostrarFhTxt
+	
+	; Comparar first help
+	compararFhTxt:			db	"comparar: faltan dos ficheros como operandos",10
+							db	"Digite 'comparar --ayuda' para mas informacion.",10
+	compararFhLen:			equ	$-compararFhTxt
+	
+	; Renombrar first help
+	renombrarFhTxt:			db	"renombrar: faltan dos nombres como operando",10
+							db	"Digite 'renombrar --ayuda' para mas informacion.",10
+	renombrarFhLen:			equ	$-renombrarFhTxt
+
+	; Copiar first help
+	copiarFhTxt:			db	"copiar: faltan dos ficheros como operandos",10
+							db	"Digite 'copiar --ayuda' para mas informacion.",10
+	copiarFhLen:			equ	$-copiarFhTxt
+	
+	
 	;-------------------------------------
 	; Variables usadas en la ejecucion.  |
 	;-------------------------------------
@@ -105,9 +128,9 @@ SECTION .data ; Datos inicializados
 	cantLineas:			dd		0
 	resultado:  		times  16 dd 0;
 	
-	;-------------------------------------
-	; Archivos txt con matrices de juego.|
-	;-------------------------------------
+	;--------------------------------------
+	; Archivos txt con ayudas de comandos.|
+	;--------------------------------------
 	ayudaMostrarTxt:		db 		"Ayuda/mostrar.ayuda",0
 	ayudaBorrarTxt:			db 		"Ayuda/borrar.ayuda",0
 	ayudaRenombrarTxt:		db 		"Ayuda/renombrar.ayuda",0
@@ -127,6 +150,47 @@ _start:
 ; Ciclo IngresarComando que se mantiene mientras el usuario no digite "salir" |
 ;------------------------------------------------------------------------------
 IngresarComando:
+
+	;-----------------------------------------
+	; Ciclos para limpiar los buffer usados. |
+	;-----------------------------------------
+	mov ecx,0
+	ciclo1:
+		cmp byte[buffer+ecx],0
+		je l2
+		mov byte[buffer+ecx],0
+		inc ecx
+		jmp ciclo1
+	l2:
+	mov ecx,0
+	ciclo2:
+		cmp byte[bufferNomArchivo+ecx],0
+		je l3
+		mov byte[bufferNomArchivo+ecx],0
+		inc ecx
+		jmp ciclo2		
+	
+	l3:
+	mov ecx,0
+	ciclo3:
+		cmp byte[bufferNomArchivo2+ecx],0
+		je l4
+		mov byte[bufferNomArchivo2+ecx],0
+		inc ecx
+		jmp ciclo3	
+		
+	l4:
+	mov ecx,0
+	ciclo4:
+		cmp byte[bufferArchivo+ecx],0
+		je LimpiezaTerminada
+		mov byte[bufferArchivo+ecx],0
+		inc ecx
+		jmp ciclo4
+			
+					
+	LimpiezaTerminada:
+	
     ; Limpia la pantalla
     mov ecx,clrScr
     mov edx,len9
@@ -198,7 +262,12 @@ ComprobarSalir:
 	jne ErrorComando
 	cmp byte[buffer+4] , 'r'
 	jne ErrorComando
+	cmp byte[buffer+5] , 10
+	je Sale
+	cmp byte[buffer+5] ,' '
+	jne ErrorComando
 	
+	Sale:
 	; Si la instruccion fue salir se termina el ciclo moviendo una f a cl.
 	xor ecx,ecx 
 	pop ecx
@@ -224,7 +293,7 @@ ComprobarMostrar:
 	cmp byte[buffer+6] , 'r'
 	jne ErrorComando
 	cmp byte[buffer+7] , 10
-	je Ayudas
+	je PrimeraAyuda
 	cmp byte[buffer+7] , ' '
 	jne ErrorComando
 	cmp byte[buffer+8] , '-'
@@ -287,7 +356,7 @@ ComprobarBorrar:
 	cmp byte[buffer+5] , 'r'
 	jne ErrorComando
 	cmp byte[buffer+6] , 10
-	je Ayudas
+	je PrimeraAyuda
 	cmp byte[buffer+6] , ' '
 	jne ErrorComando
 	cmp byte[buffer+7] , '-'
@@ -308,6 +377,7 @@ ComprobarBorrar:
 			inc ecx
 			jmp .ciclo
 	
+	; Llama a la funcion ComprobarForzado para analizar si el parametro fue escrito.
 	PosibleForzado:
 			call ComprobarForzado
 			je NoPreguntaBorrar
@@ -382,7 +452,7 @@ ComprobarRenombrar:
 	cmp byte[buffer+8] , 'r'
 	jne ErrorComando
 	cmp byte[buffer+9] , 10
-	je Ayudas
+	je PrimeraAyuda
 	cmp byte[buffer+9] , ' '
 	jne ErrorComando
 	cmp byte[buffer+10] , '-'
@@ -493,7 +563,7 @@ ComprobarCopiar:
 	cmp byte[buffer+5] , 'r'
 	jne ErrorComando
 	cmp byte[buffer+6] , 10
-	je Ayudas
+	je PrimeraAyuda
 	cmp byte[buffer+6] , ' '
 	jne ErrorComando
 	cmp byte[buffer+7] , '-'
@@ -578,7 +648,7 @@ ComprobarComparar:
 	cmp byte[buffer+7] , 'r'
 	jne ErrorComando	
 	cmp byte[buffer+8] , 10
-	je Ayudas
+	je PrimeraAyuda
 	cmp byte[buffer+8] , ' '
 	jne ErrorComando
 	cmp byte[buffer+9] , '-'
@@ -816,8 +886,51 @@ CompArchivos:
 		call ReadText
 		jmp IngresarComando
 	
+;-----------------------------------------------------
+; Verifica cual texto de primera ayuda debe mostrar. |
+;-----------------------------------------------------
+PrimeraAyuda:
+	cmp byte[buffer] , 'm'
+	je PriAyudaMostrar
+	cmp byte[buffer] , 'b'
+	je PriAyudaBorrar
+	cmp byte[buffer] , 'r'
+	je PriAyudaRenombrar
+	cmp byte[buffer+2] , 'p'
+	je PriAyudaCopiar
 	
+	PriAyudaComparar:
+		mov ecx, compararFhTxt
+		mov edx, compararFhLen
+		jmp ImprimeFh
 	
+	PriAyudaMostrar:
+		mov ecx, mostrarFhTxt
+		mov edx, mostrarFhLen
+		jmp ImprimeFh
+	
+	PriAyudaBorrar:
+		mov ecx, borrarFhTxt
+		mov edx, borrarFhLen
+		jmp ImprimeFh
+	 
+	PriAyudaCopiar:
+		mov ecx, copiarFhTxt
+		mov edx, copiarFhLen
+		jmp ImprimeFh
+	
+	PriAyudaRenombrar:
+		mov ecx, renombrarFhTxt
+		mov edx, renombrarFhLen
+
+	ImprimeFh:
+	; Se imprime en pantalla el texto de primer ayuda.
+	call DisplayText
+	
+	; Espera por un ENTER
+	call LeerComando
+	jmp Continuar
+
 
 ;----------------------------------------------
 ; Verifica las letras restantes para "ayuda". |
