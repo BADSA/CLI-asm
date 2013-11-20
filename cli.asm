@@ -186,7 +186,7 @@ IngresarComando:
 	
     ; Lee el comando digitado por el usuario.
     mov ecx, buffer
-    mov        edx, bufLen
+    mov edx, bufLen
     call ReadText		
 	
 	; Verificacion de la primera letra para analizar si es un posible comando.
@@ -843,12 +843,20 @@ CompArchivos:
 		je .msjArchivo2
 		cmp bl,0
 		je .finIgual
-	
-	.msjArchivo1:
-		mov ecx,archivo2Txt
-		mov edx,lenArchivo2Txt
-		call DisplayText
+		
 		jmp .fin
+		
+	.msjArchivo2:
+		cmp bl,0
+		je .fin
+		
+		mov ecx,archivo1Txt
+		mov edx,lenArchivo1Txt
+		call DisplayText
+		
+		jmp .fin
+	
+	
 		
 	.termina2:
 		mov al,byte[cantLineas]
@@ -856,13 +864,18 @@ CompArchivos:
 		je .msjArchivo1
 		cmp dl,0
 		je .finIgual
-	
-	.msjArchivo2:
-		mov ecx,archivo1Txt
-		mov edx,lenArchivo1Txt
-		call DisplayText
-		
 		jmp .fin
+	
+	.msjArchivo1:
+		cmp dl,0
+		je .fin
+		
+		mov ecx,archivo2Txt
+		mov edx,lenArchivo2Txt
+		call DisplayText
+		jmp .fin
+	
+	
 		
 	.finIgual:		
 		mov edx,lenArchivoIguales
@@ -872,7 +885,10 @@ CompArchivos:
 		jmp IngresarComando
 	
 	.fin:
+		mov ecx, buffer
+		mov edx, bufLen
 		call ReadText
+		;call ReadText
 		jmp IngresarComando
 	
 ;-----------------------------------------------------
