@@ -19,473 +19,473 @@
     19                                  sys_read 	equ 3
     20                                  sys_write 	equ 4
     21                                  sys_open 	equ 5
-    22                                  
-    23                                  %define sys_unlink 10
-    24                                  %define sys_link 9
-    25                                  %define sys_creat 8
+    22                                  sys_close	equ	6
+    23                                  sys_creat	equ	8
+    24                                  %define sys_unlink 10
+    25                                  %define sys_link 9
     26                                  %define sys_rename 38
-    27                                  %define sys_close 6
-    28                                  
-    29                                  SECTION .bss ; Datos no inicializados.
-    30                                  	
-    31                                  	bufLen				equ 	100 ; Longitud del buffer igual a 10 bytes.
-    32 00000000 <res 00000064>          	buffer 				resb 	bufLen ; 100 bytes para los comandos del usuario.
-    33                                  
-    34                                  	bufLenNomArchivo	equ		50 ; Longitud del buffer 50 bytes.
-    35 00000064 <res 00000032>          	bufferNomArchivo	resb	bufLenNomArchivo  ; 50 bytes para guardar los nombres de los archivos
-    36 00000096 <res 00000032>          	bufferNomArchivo2	resb	bufLenNomArchivo  ; necesarios para los comandos.
-    37                                  	
-    38                                  	bufLenArchivo		equ		1600 ; Tamano para leer el archivo en memoria.
-    39 000000C8 <res 00000640>          	bufferArchivo		resb	bufLenArchivo 
-    40                                  	
-    41                                  	bufLenArchivo2		equ		1600 ; Tamano para leer el archivo en memoria.
-    42 00000708 <res 00000640>          	bufferArchivo2		resb	bufLenArchivo2 
+    27                                  
+    28                                  SECTION .bss ; Datos no inicializados.
+    29                                  	
+    30                                  	bufLen				equ 	100 ; Longitud del buffer igual a 10 bytes.
+    31 00000000 <res 00000064>          	buffer 				resb 	bufLen ; 100 bytes para los comandos del usuario.
+    32                                  
+    33                                  	bufLenNomArchivo	equ		50 ; Longitud del buffer 50 bytes.
+    34 00000064 <res 00000032>          	bufferNomArchivo	resb	bufLenNomArchivo  ; 50 bytes para guardar los nombres de los archivos
+    35 00000096 <res 00000032>          	bufferNomArchivo2	resb	bufLenNomArchivo  ; necesarios para los comandos.
+    36                                  	
+    37                                  	bufLenArchivo		equ		3000 ; Tamano para leer el archivo en memoria.
+    38 000000C8 <res 00000BB8>          	bufferArchivo		resb	bufLenArchivo 
+    39                                  	
+    40                                  	bufLenArchivo2		equ		3000 ; Tamano para leer el archivo en memoria.
+    41 00000C80 <res 00000BB8>          	bufferArchivo2		resb	bufLenArchivo2 
+    42                                  	
     43                                  	
     44                                  	
-    45                                  	
-    46                                  SECTION .data ; Datos inicializados
-    47                                  	;----------------------------------------------------
-    48                                  	; Mensajes usados durante la ejecucion del programa.|
-    49                                  	;----------------------------------------------------
-    50                                  
-    51 00000000 4241445341203E2000      	promptTxt:	 		db		"BADSA > ",0
-    52                                  	len: 				equ 	$-promptTxt
-    53                                  	
-    54 00000009 0A4772616369617320-     	despedidaTxt:		db  	10,'Gracias por usar BADSA CLI! ',10,10
-    55 00000012 706F72207573617220-
-    56 0000001B 424144534120434C49-
-    57 00000024 21200A0A           
-    58                                  	len3:				equ		$-despedidaTxt
-    59                                  	
-    60 00000028 0A4572726F723A206E-     	errorArchivoTexto: 	db 		10,"Error: no se pudo encontrar el archivo.", 10, 10
-    61 00000031 6F207365207075646F-
-    62 0000003A 20656E636F6E747261-
-    63 00000043 7220656C2061726368-
-    64 0000004C 69766F2E0A0A       
-    65                                  	errorArchivoLen:	equ 	$-errorArchivoTexto
-    66                                  	
-    67 00000052 1B5B481B5B324A          	clrScr:				db 		`\33[H\33[2J`
-    68                                  	len9:				equ 	$-clrScr	
-    69                                  	
-    70 00000059 0A4552524F523A0A        	errorComando:		db		10, "ERROR:",10,
-    71 00000061 436F6D616E646F206E-     						db		"Comando no valido.",10
-    72 0000006A 6F2076616C69646F2E-
-    73 00000073 0A                 
-    74 00000074 454E54455220706172-     						db		"ENTER para continuar",10
-    75 0000007D 6120636F6E74696E75-
-    76 00000086 61720A             
-    77                                  								
-    78                                  	lenErrorComando:	equ		$-errorComando
-    79                                  	
-    80 00000089 0A426F7272616E646F-     	msgBorrando:		db		10,"Borrando el archivo...",10
-    81 00000092 20656C206172636869-
-    82 0000009B 766F2E2E2E0A       
-    83                                  	lenBorrando:		equ		$-msgBorrando
-    84                                  	
-    85 000000A1 0A4E6F207365207075-     	msg_fail:			db		10,"No se pudo completar la operacion. :[",10
-    86 000000AA 646F20636F6D706C65-
-    87 000000B3 746172206C61206F70-
-    88 000000BC 65726163696F6E2E20-
-    89 000000C5 3A5B0A             
-    90                                  	lenFail:			equ		$-msg_fail
-    91                                  	
-    92 000000C8 0A4F7065726163696F-     	msg_success:		db		10,"Operacion realizada satisfactoriamente :]",10
-    93 000000D1 6E207265616C697A61-
-    94 000000DA 646120736174697366-
-    95 000000E3 6163746F7269616D65-
-    96 000000EC 6E7465203A5D0A     
-    97                                  	lenSuccess:			equ		$-msg_success
-    98                                  	
-    99 000000F3 0A4573746120736567-     	pregBorrar:			db		10,"Esta seguro que desea eliminar el archivo? s/n",10,"-> "
-   100 000000FC 75726F207175652064-
-   101 00000105 6573656120656C696D-
-   102 0000010E 696E617220656C2061-
-   103 00000117 72636869766F3F2073-
-   104 00000120 2F6E0A2D3E20       
-   105                                  	lenPregBorrar:		equ		$-pregBorrar
-   106                                  	
-   107 00000126 0A4573746120736567-     	pregRenom:			db		10,"Esta seguro que desea renombrar el archivo? s/n",10,"-> "
-   108 0000012F 75726F207175652064-
-   109 00000138 657365612072656E6F-
-   110 00000141 6D6272617220656C20-
-   111 0000014A 6172636869766F3F20-
-   112 00000153 732F6E0A2D3E20     
-   113                                  	lenPregRenom:		equ		$-pregRenom
-   114                                  	
-   115 0000015A 4C6F73206172636869-     	archivoIgualesTxt:		db		"Los archivos son iguales en contenido",10
-   116 00000163 766F7320736F6E2069-
-   117 0000016C 6775616C657320656E-
-   118 00000175 20636F6E74656E6964-
-   119 0000017E 6F0A               
-   120                                  	lenArchivoIguales:		equ		$-archivoIgualesTxt
-   121                                  	
-   122 00000180 4C6F73206172636869-     	archivoDiferenteTxt:	db		"Los archivos son diferentes en las lineas:",10
-   123 00000189 766F7320736F6E2064-
-   124 00000192 69666572656E746573-
-   125 0000019B 20656E206C6173206C-
-   126 000001A4 696E6561733A0A     
-   127                                  	lenArchivoDiferente:	equ		$-archivoDiferenteTxt
-   128                                  	
-   129 000001AB 486173746120657374-     	archivo1Txt:				db "Hasta este punto el archivo 1 no contiene mas informacion",10
-   130 000001B4 652070756E746F2065-
-   131 000001BD 6C206172636869766F-
-   132 000001C6 2031206E6F20636F6E-
-   133 000001CF 7469656E65206D6173-
-   134 000001D8 20696E666F726D6163-
-   135 000001E1 696F6E0A           
-   136                                  	lenArchivo1Txt:			equ $-archivo1Txt
-   137                                  	
-   138 000001E5 486173746120657374-     	archivo2Txt:				db "Hasta este punto el archivo 2 no contiene mas informacion",10
-   139 000001EE 652070756E746F2065-
-   140 000001F7 6C206172636869766F-
-   141 00000200 2032206E6F20636F6E-
-   142 00000209 7469656E65206D6173-
-   143 00000212 20696E666F726D6163-
-   144 0000021B 696F6E0A           
-   145                                  	lenArchivo2Txt:			equ $-archivo2Txt
-   146                                  	
-   147                                  	; Borrar first help
-   148 0000021F 626F727261723A2066-     	borrarFhTxt:			db	"borrar: falta un fichero como operando",10
-   149 00000228 616C746120756E2066-
-   150 00000231 69636865726F20636F-
-   151 0000023A 6D6F206F706572616E-
-   152 00000243 646F0A             
-   153 00000246 446967697465202762-     							db	"Digite 'borrar --ayuda' para mas informacion.",10
-   154 0000024F 6F72726172202D2D61-
-   155 00000258 797564612720706172-
-   156 00000261 61206D617320696E66-
-   157 0000026A 6F726D6163696F6E2E-
-   158 00000273 0A                 
-   159                                  	borrarFhLen:			equ	$-borrarFhTxt
-   160                                  
-   161                                  	; Mostrar first help
-   162 00000274 6D6F73747261723A20-     	mostrarFhTxt:			db	"mostrar: falta un fichero como operando",10
-   163 0000027D 66616C746120756E20-
-   164 00000286 6669636865726F2063-
-   165 0000028F 6F6D6F206F70657261-
-   166 00000298 6E646F0A           
-   167 0000029C 44696769746520276D-     							db	"Digite 'mostrar --ayuda' para mas informacion.",10
-   168 000002A5 6F7374726172202D2D-
-   169 000002AE 617975646127207061-
-   170 000002B7 7261206D617320696E-
-   171 000002C0 666F726D6163696F6E-
-   172 000002C9 2E0A               
-   173                                  	mostrarFhLen:			equ	$-mostrarFhTxt
-   174                                  	
-   175                                  	; Comparar first help
-   176 000002CB 636F6D70617261723A-     	compararFhTxt:			db	"comparar: faltan dos ficheros como operandos",10
-   177 000002D4 2066616C74616E2064-
-   178 000002DD 6F7320666963686572-
-   179 000002E6 6F7320636F6D6F206F-
-   180 000002EF 706572616E646F730A 
-   181 000002F8 446967697465202763-     							db	"Digite 'comparar --ayuda' para mas informacion.",10
-   182 00000301 6F6D7061726172202D-
-   183 0000030A 2D6179756461272070-
-   184 00000313 617261206D61732069-
-   185 0000031C 6E666F726D6163696F-
-   186 00000325 6E2E0A             
-   187                                  	compararFhLen:			equ	$-compararFhTxt
-   188                                  	
-   189                                  	; Renombrar first help
-   190 00000328 72656E6F6D62726172-     	renombrarFhTxt:			db	"renombrar: faltan dos nombres como operando",10
-   191 00000331 3A2066616C74616E20-
-   192 0000033A 646F73206E6F6D6272-
-   193 00000343 657320636F6D6F206F-
-   194 0000034C 706572616E646F0A   
-   195 00000354 446967697465202772-     							db	"Digite 'renombrar --ayuda' para mas informacion.",10
-   196 0000035D 656E6F6D6272617220-
-   197 00000366 2D2D61797564612720-
-   198 0000036F 70617261206D617320-
-   199 00000378 696E666F726D616369-
-   200 00000381 6F6E2E0A           
-   201                                  	renombrarFhLen:			equ	$-renombrarFhTxt
-   202                                  
-   203                                  	; Copiar first help
-   204 00000385 636F706961723A2066-     	copiarFhTxt:			db	"copiar: faltan dos ficheros como operandos",10
-   205 0000038E 616C74616E20646F73-
-   206 00000397 206669636865726F73-
-   207 000003A0 20636F6D6F206F7065-
-   208 000003A9 72616E646F730A     
-   209 000003B0 446967697465202763-     							db	"Digite 'copiar --ayuda' para mas informacion.",10
-   210 000003B9 6F70696172202D2D61-
-   211 000003C2 797564612720706172-
-   212 000003CB 61206D617320696E66-
-   213 000003D4 6F726D6163696F6E2E-
-   214 000003DD 0A                 
-   215                                  	copiarFhLen:			equ	$-copiarFhTxt
-   216                                  	
-   217                                  	;-------------------------------------
-   218                                  	; Variables usadas en la ejecucion.  |
-   219                                  	;-------------------------------------
-   220 000003DE 01                      	contador: 			db 		1
-   221 000003DF 00                      	cuentaLineas: 		db 		0
-   222 000003E0 00000000                	indexBuffer: 		dd 		0
-   223 000003E4 00000000                	cantLineas:			dd		0
-   224 000003E8 00000000<rept>          	resultado:  		times  16 dd 0;
-   225                                  	
-   226                                  	;-------------------------------------
-   227                                  	; Archivos txt con matrices de juego.|
-   228                                  	;-------------------------------------
-   229 00000428 41797564612F6D6F73-     	ayudaMostrarTxt:		db 		"Ayuda/mostrar.ayuda",0
-   230 00000431 747261722E61797564-
-   231 0000043A 6100               
-   232 0000043C 41797564612F626F72-     	ayudaBorrarTxt:			db 		"Ayuda/borrar.ayuda",0
-   233 00000445 7261722E6179756461-
-   234 0000044E 00                 
-   235 0000044F 41797564612F72656E-     	ayudaRenombrarTxt:		db 		"Ayuda/renombrar.ayuda",0
-   236 00000458 6F6D627261722E6179-
-   237 00000461 75646100           
-   238 00000465 41797564612F636F70-     	ayudaCopiarTxt:			db 		"Ayuda/copiar.ayuda",0
-   239 0000046E 6961722E6179756461-
-   240 00000477 00                 
-   241 00000478 41797564612F636F6D-     	ayudaCompararTxt:		db 		"Ayuda/comparar.ayuda",0
-   242 00000481 70617261722E617975-
-   243 0000048A 646100             
-   244                                  	
-   245                                  		
-   246                                  	
-   247                                  		
-   248                                  SECTION .text
-   249                                  	global _start
-   250                                  	
-   251                                  _start:
-   252 00000000 90                      	nop
-   253                                  
-   254                                  ;------------------------------------------------------------------------------
-   255                                  ; Ciclo IngresarComando que se mantiene mientras el usuario no digite "salir" |
-   256                                  ;------------------------------------------------------------------------------
-   257                                  IngresarComando:
-   258                                  
-   259 00000001 B900000000              	mov ecx,0
-   260                                  	; Ciclo para limpiar buffer
-   261                                  	cicloBuffer:
-   262 00000006 80B9[00000000]00        		cmp byte[buffer+ecx],0
-   263 0000000D 740A                    		je l2
-   264 0000000F C681[00000000]00        		mov byte[buffer+ecx],0
-   265 00000016 41                      		inc ecx
-   266 00000017 EBED                    		jmp cicloBuffer
-   267                                  		
-   268                                  	l2:
-   269 00000019 B900000000              	mov ecx,0
-   270                                  	; Ciclo para limpiar buffer
-   271                                  	cicloBuffer2:
-   272 0000001E 80B9[64000000]00        		cmp byte[bufferNomArchivo+ecx],0
-   273 00000025 740A                    		je l3
-   274 00000027 C681[64000000]00        		mov byte[bufferNomArchivo+ecx],0
-   275 0000002E 41                      		inc ecx
-   276 0000002F EBED                    		jmp cicloBuffer2		
-   277                                  	
-   278                                  	l3:
-   279 00000031 B900000000              	mov ecx,0
-   280                                  	; Ciclo para limpiar buffer
-   281                                  	cicloBuffer3:
-   282 00000036 80B9[96000000]00        		cmp byte[bufferNomArchivo2+ecx],0
-   283 0000003D 740A                    		je l4
-   284 0000003F C681[96000000]00        		mov byte[bufferNomArchivo2+ecx],0
-   285 00000046 41                      		inc ecx
-   286 00000047 EBED                    		jmp cicloBuffer3	
+    45                                  SECTION .data ; Datos inicializados
+    46                                  	;----------------------------------------------------
+    47                                  	; Mensajes usados durante la ejecucion del programa.|
+    48                                  	;----------------------------------------------------
+    49                                  
+    50 00000000 4241445341203E2000      	promptTxt:	 		db		"BADSA > ",0
+    51                                  	len: 				equ 	$-promptTxt
+    52                                  	
+    53 00000009 0A4772616369617320-     	despedidaTxt:		db  	10,'Gracias por usar BADSA CLI! ',10,10
+    54 00000012 706F72207573617220-
+    55 0000001B 424144534120434C49-
+    56 00000024 21200A0A           
+    57                                  	len3:				equ		$-despedidaTxt
+    58                                  	
+    59 00000028 0A4572726F723A206E-     	errorArchivoTexto: 	db 		10,"Error: no se pudo encontrar el archivo.", 10, 10
+    60 00000031 6F207365207075646F-
+    61 0000003A 20656E636F6E747261-
+    62 00000043 7220656C2061726368-
+    63 0000004C 69766F2E0A0A       
+    64                                  	errorArchivoLen:	equ 	$-errorArchivoTexto
+    65                                  	
+    66 00000052 1B5B481B5B324A          	clrScr:				db 		`\33[H\33[2J`
+    67                                  	len9:				equ 	$-clrScr	
+    68                                  	
+    69 00000059 0A4552524F523A0A        	errorComando:		db		10, "ERROR:",10,
+    70 00000061 436F6D616E646F206E-     						db		"Comando no valido.",10
+    71 0000006A 6F2076616C69646F2E-
+    72 00000073 0A                 
+    73 00000074 454E54455220706172-     						db		"ENTER para IngresarComando",10
+    74 0000007D 6120496E6772657361-
+    75 00000086 72436F6D616E646F0A 
+    76                                  								
+    77                                  	lenErrorComando:	equ		$-errorComando
+    78                                  	
+    79 0000008F 0A426F7272616E646F-     	msgBorrando:		db		10,"Borrando el archivo...",10
+    80 00000098 20656C206172636869-
+    81 000000A1 766F2E2E2E0A       
+    82                                  	lenBorrando:		equ		$-msgBorrando
+    83                                  	
+    84 000000A7 0A4E6F207365207075-     	msg_fail:			db		10,"No se pudo completar la operacion. :[",10
+    85 000000B0 646F20636F6D706C65-
+    86 000000B9 746172206C61206F70-
+    87 000000C2 65726163696F6E2E20-
+    88 000000CB 3A5B0A             
+    89                                  	lenFail:			equ		$-msg_fail
+    90                                  	
+    91 000000CE 0A4F7065726163696F-     	msg_success:		db		10,"Operacion realizada satisfactoriamente :]",10
+    92 000000D7 6E207265616C697A61-
+    93 000000E0 646120736174697366-
+    94 000000E9 6163746F7269616D65-
+    95 000000F2 6E7465203A5D0A     
+    96                                  	lenSuccess:			equ		$-msg_success
+    97                                  	
+    98 000000F9 0A4573746120736567-     	pregBorrar:			db		10,"Esta seguro que desea eliminar el archivo? s/n",10,"-> "
+    99 00000102 75726F207175652064-
+   100 0000010B 6573656120656C696D-
+   101 00000114 696E617220656C2061-
+   102 0000011D 72636869766F3F2073-
+   103 00000126 2F6E0A2D3E20       
+   104                                  	lenPregBorrar:		equ		$-pregBorrar
+   105                                  	
+   106 0000012C 0A4573746120736567-     	pregRenom:			db		10,"Esta seguro que desea renombrar el archivo? s/n",10,"-> "
+   107 00000135 75726F207175652064-
+   108 0000013E 657365612072656E6F-
+   109 00000147 6D6272617220656C20-
+   110 00000150 6172636869766F3F20-
+   111 00000159 732F6E0A2D3E20     
+   112                                  	lenPregRenom:		equ		$-pregRenom
+   113                                  	
+   114 00000160 4C6F73206172636869-     	archivoIgualesTxt:		db		"Los archivos son iguales en contenido",10
+   115 00000169 766F7320736F6E2069-
+   116 00000172 6775616C657320656E-
+   117 0000017B 20636F6E74656E6964-
+   118 00000184 6F0A               
+   119                                  	lenArchivoIguales:		equ		$-archivoIgualesTxt
+   120                                  	
+   121 00000186 4C6F73206172636869-     	archivoDiferenteTxt:	db		"Los archivos son diferentes en las lineas:",10
+   122 0000018F 766F7320736F6E2064-
+   123 00000198 69666572656E746573-
+   124 000001A1 20656E206C6173206C-
+   125 000001AA 696E6561733A0A     
+   126                                  	lenArchivoDiferente:	equ		$-archivoDiferenteTxt
+   127                                  	
+   128 000001B1 204861737461206573-     	archivo1Txt:				db " Hasta este punto el archivo 1 no contiene mas informacion",10
+   129 000001BA 74652070756E746F20-
+   130 000001C3 656C20617263686976-
+   131 000001CC 6F2031206E6F20636F-
+   132 000001D5 6E7469656E65206D61-
+   133 000001DE 7320696E666F726D61-
+   134 000001E7 63696F6E0A         
+   135                                  	lenArchivo1Txt:			equ $-archivo1Txt
+   136                                  	
+   137 000001EC 204861737461206573-     	archivo2Txt:				db " Hasta este punto el archivo 2 no contiene mas informacion",10
+   138 000001F5 74652070756E746F20-
+   139 000001FE 656C20617263686976-
+   140 00000207 6F2032206E6F20636F-
+   141 00000210 6E7469656E65206D61-
+   142 00000219 7320696E666F726D61-
+   143 00000222 63696F6E0A         
+   144                                  	lenArchivo2Txt:			equ $-archivo2Txt
+   145                                  	
+   146                                  	; Borrar first help
+   147 00000227 626F727261723A2066-     	borrarFhTxt:			db	"borrar: falta un fichero como operando",10
+   148 00000230 616C746120756E2066-
+   149 00000239 69636865726F20636F-
+   150 00000242 6D6F206F706572616E-
+   151 0000024B 646F0A             
+   152 0000024E 446967697465202762-     							db	"Digite 'borrar --ayuda' para mas informacion.",10
+   153 00000257 6F72726172202D2D61-
+   154 00000260 797564612720706172-
+   155 00000269 61206D617320696E66-
+   156 00000272 6F726D6163696F6E2E-
+   157 0000027B 0A                 
+   158 0000027C 454E54455220706172-     							db		"ENTER para IngresarComando",10
+   159 00000285 6120496E6772657361-
+   160 0000028E 72436F6D616E646F0A 
+   161                                  	borrarFhLen:			equ	$-borrarFhTxt
+   162                                  
+   163                                  	; Mostrar first help
+   164 00000297 6D6F73747261723A20-     	mostrarFhTxt:			db	"mostrar: falta un fichero como operando",10
+   165 000002A0 66616C746120756E20-
+   166 000002A9 6669636865726F2063-
+   167 000002B2 6F6D6F206F70657261-
+   168 000002BB 6E646F0A           
+   169 000002BF 44696769746520276D-     							db	"Digite 'mostrar --ayuda' para mas informacion.",10
+   170 000002C8 6F7374726172202D2D-
+   171 000002D1 617975646127207061-
+   172 000002DA 7261206D617320696E-
+   173 000002E3 666F726D6163696F6E-
+   174 000002EC 2E0A               
+   175 000002EE 454E54455220706172-     							db		"ENTER para IngresarComando",10
+   176 000002F7 6120496E6772657361-
+   177 00000300 72436F6D616E646F0A 
+   178                                  	mostrarFhLen:			equ	$-mostrarFhTxt
+   179                                  	
+   180                                  	; Comparar first help
+   181 00000309 636F6D70617261723A-     	compararFhTxt:			db	"comparar: faltan dos ficheros como operandos",10
+   182 00000312 2066616C74616E2064-
+   183 0000031B 6F7320666963686572-
+   184 00000324 6F7320636F6D6F206F-
+   185 0000032D 706572616E646F730A 
+   186 00000336 446967697465202763-     							db	"Digite 'comparar --ayuda' para mas informacion.",10
+   187 0000033F 6F6D7061726172202D-
+   188 00000348 2D6179756461272070-
+   189 00000351 617261206D61732069-
+   190 0000035A 6E666F726D6163696F-
+   191 00000363 6E2E0A             
+   192 00000366 454E54455220706172-     							db		"ENTER para IngresarComando",10
+   193 0000036F 6120496E6772657361-
+   194 00000378 72436F6D616E646F0A 
+   195                                  	compararFhLen:			equ	$-compararFhTxt
+   196                                  	
+   197                                  	; Renombrar first help
+   198 00000381 72656E6F6D62726172-     	renombrarFhTxt:			db	"renombrar: faltan dos nombres como operando",10
+   199 0000038A 3A2066616C74616E20-
+   200 00000393 646F73206E6F6D6272-
+   201 0000039C 657320636F6D6F206F-
+   202 000003A5 706572616E646F0A   
+   203 000003AD 446967697465202772-     							db	"Digite 'renombrar --ayuda' para mas informacion.",10
+   204 000003B6 656E6F6D6272617220-
+   205 000003BF 2D2D61797564612720-
+   206 000003C8 70617261206D617320-
+   207 000003D1 696E666F726D616369-
+   208 000003DA 6F6E2E0A           
+   209 000003DE 454E54455220706172-     							db		"ENTER para IngresarComando",10
+   210 000003E7 6120496E6772657361-
+   211 000003F0 72436F6D616E646F0A 
+   212                                  	renombrarFhLen:			equ	$-renombrarFhTxt
+   213                                  
+   214                                  	; Copiar first help
+   215 000003F9 636F706961723A2066-     	copiarFhTxt:			db	"copiar: faltan dos ficheros como operandos",10
+   216 00000402 616C74616E20646F73-
+   217 0000040B 206669636865726F73-
+   218 00000414 20636F6D6F206F7065-
+   219 0000041D 72616E646F730A     
+   220 00000424 446967697465202763-     							db	"Digite 'copiar --ayuda' para mas informacion.",10
+   221 0000042D 6F70696172202D2D61-
+   222 00000436 797564612720706172-
+   223 0000043F 61206D617320696E66-
+   224 00000448 6F726D6163696F6E2E-
+   225 00000451 0A                 
+   226 00000452 454E54455220706172-     							db		"ENTER para IngresarComando",10
+   227 0000045B 6120496E6772657361-
+   228 00000464 72436F6D616E646F0A 
+   229                                  	copiarFhLen:			equ	$-copiarFhTxt
+   230                                  	
+   231                                  	
+   232                                  	; Textos para los logs
+   233 0000046D 436F6D616E646F206E-     	comandoInvalidoTxt:		db	"Comando no valido.",10
+   234 00000476 6F2076616C69646F2E-
+   235 0000047F 0A                 
+   236                                  	comandoInvalidoLen:		equ $-comandoInvalidoTxt
+   237 00000480 546578746F20696E67-     	textoIngresadoTxt:		db	"Texto ingresado: "
+   238 00000489 72657361646F3A20   
+   239                                  	textoIngresadoLen:		equ	$-textoIngresadoTxt
+   240 00000491 0A                      	enterTxt:				db	10
+   241                                  	enterLen:				equ $-enterTxt
+   242 00000492 4E6F20736520707564-     	errorArchNomTxt:	 	db 	"No se pudo encontrar el archivo.",10
+   243 0000049B 6F20656E636F6E7472-
+   244 000004A4 617220656C20617263-
+   245 000004AD 6869766F2E0A       
+   246                                  	errorArchNomLen:		equ $-errorArchNomTxt
+   247 000004B3 4E6F6D627265206465-     	archivoNombreTxt:		db	"Nombre del archivo: "
+   248 000004BC 6C206172636869766F-
+   249 000004C5 3A20               
+   250                                  	archivoNombreLen:		equ	$-archivoNombreTxt
+   251                                  	
+   252                                  	
+   253                                  	;-------------------------------------
+   254                                  	; Variables usadas en la ejecucion.  |
+   255                                  	;-------------------------------------
+   256 000004C7 01                      	contador: 			db 		1
+   257 000004C8 00                      	cuentaLineas: 		db 		0
+   258 000004C9 00000000                	indexBuffer: 		dd 		0
+   259 000004CD 00000000                	cantLineas:			dd		0
+   260 000004D1 00000000<rept>          	resultado:  		times  16 dd 0
+   261 00000511 00                      	cantCaracteres:		db		0
+   262 00000512 00000000                	tipoError:			dd		0
+   263 00000516 00                      	numArchivo:			db		0
+   264                                  	
+   265                                  	;--------------------------------------
+   266                                  	; Archivos txt con ayudas de comandos.|
+   267                                  	;--------------------------------------
+   268 00000517 41797564612F6D6F73-     	ayudaMostrarTxt:		db 		"Ayuda/mostrar.ayuda",0
+   269 00000520 747261722E61797564-
+   270 00000529 6100               
+   271 0000052B 41797564612F626F72-     	ayudaBorrarTxt:			db 		"Ayuda/borrar.ayuda",0
+   272 00000534 7261722E6179756461-
+   273 0000053D 00                 
+   274 0000053E 41797564612F72656E-     	ayudaRenombrarTxt:		db 		"Ayuda/renombrar.ayuda",0
+   275 00000547 6F6D627261722E6179-
+   276 00000550 75646100           
+   277 00000554 41797564612F636F70-     	ayudaCopiarTxt:			db 		"Ayuda/copiar.ayuda",0
+   278 0000055D 6961722E6179756461-
+   279 00000566 00                 
+   280 00000567 41797564612F636F6D-     	ayudaCompararTxt:		db 		"Ayuda/comparar.ayuda",0
+   281 00000570 70617261722E617975-
+   282 00000579 646100             
+   283 0000057C 6C6F67732E74787400      	archivoLogsTxt:			db		"logs.txt",0
+   284                                  	
+   285                                  		
+   286                                  	
    287                                  		
-   288                                  	l4:
-   289                                  	
-   290 00000049 B900000000              	mov ecx,0
-   291                                  	; Ciclo para limpiar buffer
-   292                                  	cicloBuffer4:
-   293 0000004E 80B9[C8000000]00        		cmp byte[bufferArchivo+ecx],0
-   294 00000055 740A                    		je LimpiezaTerminada
-   295 00000057 C681[C8000000]00        		mov byte[bufferArchivo+ecx],0
-   296 0000005E 41                      		inc ecx
-   297 0000005F EBED                    		jmp cicloBuffer4
-   298                                  					
-   299                                  	LimpiezaTerminada:
-   300                                      ; Limpia la pantalla
-   301 00000061 B9[52000000]                mov ecx,clrScr
-   302 00000066 BA07000000                  mov edx,len9
-   303 0000006B E843090000                  call DisplayText
-   304                                      
-   305 00000070 31C9                        xor ecx,ecx
-   306 00000072 B174                        mov cl,'t' ; Se mueve una t de true para indicar que el ciclo continua.
-   307 00000074 51                          push ecx ; Se guarda el valor para verificar la continuidad del ciclo.
-   308                                      
-   309                                  	; Muestra en pantalla el prompt.
-   310 00000075 B9[00000000]            	mov ecx, promptTxt
-   311 0000007A BA09000000              	mov edx, len
-   312 0000007F E82F090000              	call DisplayText
-   313                                  	
-   314                                      ; Lee el comando digitado por el usuario.
-   315 00000084 B9[00000000]                mov ecx, buffer
-   316 00000089 BA64000000                  mov        edx, bufLen
-   317 0000008E E82D090000                  call ReadText		
-   318                                  	
-   319                                  	; Verificacion de la primera letra para analizar si es un posible comando.
-   320 00000093 803D[00000000]73        	cmp byte[buffer] , 's'
-   321 0000009A 7467                    	je ComprobarSalir
+   288                                  SECTION .text
+   289                                  	global _start
+   290                                  	
+   291                                  _start:
+   292 00000000 90                      	nop
+   293                                  
+   294                                  ;------------------------------------------------------------------------------
+   295                                  ; Ciclo IngresarComando que se mantiene mientras el usuario no digite "salir" |
+   296                                  ;------------------------------------------------------------------------------
+   297                                  IngresarComando:
+   298                                  
+   299 00000001 E8DB090000              	call LimpiarBuffers
+   300                                  	
+   301                                      ; Limpia la pantalla
+   302 00000006 B9[52000000]                mov ecx,clrScr
+   303 0000000B BA07000000                  mov edx,len9
+   304 00000010 E8860B0000                  call DisplayText
+   305                                      
+   306                                  	; Muestra en pantalla el prompt.
+   307 00000015 B9[00000000]            	mov ecx, promptTxt
+   308 0000001A BA09000000              	mov edx, len
+   309 0000001F E8770B0000              	call DisplayText
+   310                                  	
+   311                                      ; Lee el comando digitado por el usuario.
+   312 00000024 B9[00000000]                mov ecx, buffer
+   313 00000029 BA64000000                  mov        edx, bufLen
+   314 0000002E E8750B0000                  call ReadText		
+   315                                  	
+   316                                  	; Verificacion de la primera letra para analizar si es un posible comando.
+   317 00000033 803D[00000000]73        	cmp byte[buffer] , 's'
+   318 0000003A 7468                    	je ComprobarSalir
+   319                                  	
+   320 0000003C 803D[00000000]6D        	cmp byte[buffer] , 'm'
+   321 00000043 0F8496000000            	je ComprobarMostrar
    322                                  	
-   323 0000009C 803D[00000000]6D        	cmp byte[buffer] , 'm'
-   324 000000A3 0F8498000000            	je ComprobarMostrar
+   323 00000049 803D[00000000]62        	cmp byte[buffer] , 'b'
+   324 00000050 0F846C010000            	je ComprobarBorrar
    325                                  	
-   326 000000A9 803D[00000000]62        	cmp byte[buffer] , 'b'
-   327 000000B0 0F8459010000            	je ComprobarBorrar
+   326 00000056 803D[00000000]72        	cmp byte[buffer] , 'r'
+   327 0000005D 0F8475020000            	je ComprobarRenombrar
    328                                  	
-   329 000000B6 803D[00000000]72        	cmp byte[buffer] , 'r'
-   330 000000BD 0F8453020000            	je ComprobarRenombrar
+   329 00000063 803D[00000000]63        	cmp byte[buffer] , 'c'
+   330 0000006A 750F                    	jne ErrorComando
    331                                  	
-   332 000000C3 803D[00000000]63        	cmp byte[buffer] , 'c'
-   333 000000CA 7521                    	jne ErrorComando
-   334                                  	
-   335 000000CC 803D[01000000]6F        	cmp byte[buffer+1] , 'o'
-   336 000000D3 0F8482030000            	je ComprobarCopiarOComparar
-   337 000000D9 7512                    	jne ErrorComando
-   338                                  	
-   339                                  	Continuar: ; Chequea la variable del ciclo.
-   340 000000DB 31C9                    		xor ecx,ecx 
-   341 000000DD 59                      		pop ecx
-   342 000000DE 83F974                  		cmp ecx,'t'
-   343 000000E1 0F841AFFFFFF            		je IngresarComando
-   344 000000E7 0F85E0080000            		jne Fin
-   345                                  	
-   346                                  ;-------------------------------------------	
-   347                                  ; Muestra texto de comando no encontrado.  |
-   348                                  ;-------------------------------------------
-   349                                  ErrorComando:
-   350 000000ED B9[59000000]            		mov ecx,errorComando
-   351 000000F2 BA30000000              		mov edx,lenErrorComando
-   352 000000F7 E8B7080000              		call DisplayText
-   353                                  
-   354                                  		; Espera por ENTER para ser presionado.
-   355 000000FC E889080000              		call LeerComando
-   356 00000101 EBD8                    		jmp Continuar
-   357                                  	
-   358                                  ;-------------------------------------------------------------------------------------
-   359                                  ; Comprueba si "salir" fue digitado y hace lo correspondiente si fue o no ingresado. |
-   360                                  ;-------------------------------------------------------------------------------------
-   361                                  ComprobarSalir:
-   362                                  	; Verifica las letras restantes para "salir".
-   363 00000103 803D[01000000]61        	cmp byte[buffer+1] , 'a'
-   364 0000010A 75E1                    	jne ErrorComando
-   365 0000010C 803D[02000000]6C        	cmp byte[buffer+2] , 'l'
-   366 00000113 75D8                    	jne ErrorComando
-   367 00000115 803D[03000000]69        	cmp byte[buffer+3] , 'i'
-   368 0000011C 75CF                    	jne ErrorComando
-   369 0000011E 803D[04000000]72        	cmp byte[buffer+4] , 'r'
-   370 00000125 75C6                    	jne ErrorComando
-   371 00000127 803D[05000000]0A        	cmp byte[buffer+5] , 10
-   372 0000012E 7409                    	je Sale
-   373 00000130 803D[05000000]20        	cmp byte[buffer+5] ,' '
-   374 00000137 75B4                    	jne ErrorComando
-   375                                  	
-   376                                  	Sale:
-   377                                  	; Si la instruccion fue salir se termina el ciclo moviendo una f a cl.
-   378 00000139 31C9                    	xor ecx,ecx 
-   379 0000013B 59                      	pop ecx
-   380 0000013C B166                    	mov cl,'f'
-   381 0000013E 51                      	push ecx
-   382 0000013F EB9A                    	jmp Continuar
-   383                                  	
-   384                                  ;---------------------------------------------------------------------------------------
-   385                                  ; Comprueba si "mostrar" fue digitado y hace lo correspondiente si fue o no ingresado. |
-   386                                  ;---------------------------------------------------------------------------------------
-   387                                  ComprobarMostrar:
-   388                                  	; Verifica las letras restantes para "mostrar".
-   389 00000141 803D[01000000]6F        	cmp byte[buffer+1] , 'o'
-   390 00000148 75A3                    	jne ErrorComando
-   391 0000014A 803D[02000000]73        	cmp byte[buffer+2] , 's'
-   392 00000151 759A                    	jne ErrorComando
-   393 00000153 803D[03000000]74        	cmp byte[buffer+3] , 't'
-   394 0000015A 7591                    	jne ErrorComando
-   395 0000015C 803D[04000000]72        	cmp byte[buffer+4] , 'r'
-   396 00000163 7588                    	jne ErrorComando
-   397 00000165 803D[05000000]61        	cmp byte[buffer+5] , 'a'
-   398 0000016C 0F857BFFFFFF            	jne ErrorComando
-   399 00000172 803D[06000000]72        	cmp byte[buffer+6] , 'r'
-   400 00000179 0F856EFFFFFF            	jne ErrorComando
-   401 0000017F 803D[07000000]0A        	cmp byte[buffer+7] , 10
-   402 00000186 0F840A060000            	je PrimeraAyuda
-   403 0000018C 803D[07000000]20        	cmp byte[buffer+7] , ' '
-   404 00000193 0F8554FFFFFF            	jne ErrorComando
-   405 00000199 803D[08000000]2D        	cmp byte[buffer+8] , '-'
-   406 000001A0 BB09000000              	mov ebx,9
-   407 000001A5 0F8458060000            	je ComprobarAyuda
-   408                                  
-   409                                  	; Lee el nombre del archivo que se quiere mostrar.
-   410                                  	.leerNombreArchivo:
-   411 000001AB B908000000              		mov ecx, 8
-   412 000001B0 31C0                    		xor eax,eax
-   413                                  		.ciclo:
-   414 000001B2 80B9[00000000]0A        			cmp byte[buffer+ecx],10
-   415 000001B9 740F                    			je AbrirArchivo
-   416 000001BB 8A81[00000000]          			mov al,byte[buffer+ecx]
-   417 000001C1 8881[5C000000]          			mov byte[bufferNomArchivo + ecx - 8] , al
-   418 000001C7 41                      			inc ecx
-   419 000001C8 EBE8                    			jmp .ciclo 
-   420                                  
-   421                                  	; Abre el archivo que se quiere mostrar
-   422                                  	AbrirArchivo:
-   423 000001CA BB[64000000]            	mov	ebx, bufferNomArchivo
-   424 000001CF B900000000              	mov	ecx, 0 ; Read only		
-   425 000001D4 B805000000              	mov	eax, sys_open
-   426 000001D9 CD80                    	int	80h
-   427                                  		
-   428                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
-   429                                  	ChequeaError:
-   430 000001DB 85C0                    		test	eax, eax
-   431 000001DD 0F88B7070000            		js	ErrorArchivo
-   432                                  
-   433                                  	; Sino ocurrio error, entonces se lee el archivo en un buffer.
-   434 000001E3 89C3                    	mov		ebx, eax
-   435 000001E5 B9[C8000000]            	mov		ecx, bufferArchivo
-   436 000001EA BA40060000              	mov		edx, bufLenArchivo
-   437 000001EF B803000000              	mov		eax, sys_read		
-   438 000001F4 CD80                    	int 	80h
-   439                                  	
-   440                                  	; Se imprime en pantalla el archivo.
-   441 000001F6 B9[C8000000]            	mov ecx,bufferArchivo
-   442 000001FB BA40060000              	mov edx,bufLenArchivo
-   443 00000200 E8AE070000              	call DisplayText
-   444                                  	
-   445                                  	; Simula la espera por un ENTER.
-   446 00000205 E880070000              	call LeerComando
-   447 0000020A E9CCFEFFFF              	jmp Continuar	
-   448                                  
-   449                                  ;---------------------------------------------------------------------------------------
-   450                                  ; Comprueba si "borrar" fue digitado y hace lo correspondiente si fue o no ingresado.  |
-   451                                  ;---------------------------------------------------------------------------------------
-   452                                  ComprobarBorrar:
-   453                                  	; Verifica las letras restantes para "borrar".
-   454 0000020F 803D[01000000]6F        	cmp byte[buffer+1] , 'o'
-   455 00000216 0F85D1FEFFFF            	jne ErrorComando
-   456 0000021C 803D[02000000]72        	cmp byte[buffer+2] , 'r'
-   457 00000223 0F85C4FEFFFF            	jne ErrorComando
-   458 00000229 803D[03000000]72        	cmp byte[buffer+3] , 'r'
-   459 00000230 0F85B7FEFFFF            	jne ErrorComando
-   460 00000236 803D[04000000]61        	cmp byte[buffer+4] , 'a'
-   461 0000023D 0F85AAFEFFFF            	jne ErrorComando
-   462 00000243 803D[05000000]72        	cmp byte[buffer+5] , 'r'
-   463 0000024A 0F859DFEFFFF            	jne ErrorComando
-   464 00000250 803D[06000000]0A        	cmp byte[buffer+6] , 10
-   465 00000257 0F8439050000            	je PrimeraAyuda
-   466 0000025D 803D[06000000]20        	cmp byte[buffer+6] , ' '
-   467 00000264 0F8583FEFFFF            	jne ErrorComando
-   468 0000026A 803D[07000000]2D        	cmp byte[buffer+7] , '-'
-   469 00000271 BB08000000              	mov ebx,8
-   470 00000276 0F8487050000            	je ComprobarAyuda
-   471                                  
-   472                                  	; Lee el nombre del archivo que se quiere borrar.
-   473                                  	.leerNombreArchivo:
-   474 0000027C B907000000              		mov ecx, 7
-   475 00000281 31C0                    		xor eax,eax
-   476                                  		.ciclo:
-   477 00000283 80B9[00000000]0A        			cmp byte[buffer+ecx],10
-   478 0000028A 741F                    			je BorrarArchivo
-   479 0000028C 80B9[00000000]20        			cmp byte[buffer+ecx],' '
-   480 00000293 740F                    			je PosibleForzado
-   481 00000295 8A81[00000000]          			mov al,byte[buffer+ecx]
-   482 0000029B 8881[5D000000]          			mov byte[bufferNomArchivo + ecx - 7] , al
-   483 000002A1 41                      			inc ecx
-   484 000002A2 EBDF                    			jmp .ciclo
-   485                                  	
+   332 0000006C 803D[01000000]6F        	cmp byte[buffer+1] , 'o'
+   333 00000073 0F84B3030000            	je ComprobarCopiarOComparar
+   334 00000079 7500                    	jne ErrorComando
+   335                                  
+   336                                  	
+   337                                  ;-------------------------------------------	
+   338                                  ; Muestra texto de comando no encontrado.  |
+   339                                  ;-------------------------------------------
+   340                                  ErrorComando:
+   341 0000007B B901000000              	mov ecx,1
+   342 00000080 890D[12050000]          	mov dword[tipoError],ecx
+   343 00000086 E866090000              	call RegistrarError
+   344                                  
+   345                                  	; Muestra texto de error.
+   346 0000008B B9[59000000]            	mov ecx,errorComando
+   347 00000090 BA36000000              	mov edx,lenErrorComando
+   348 00000095 E8010B0000              	call DisplayText
+   349                                  
+   350                                  	; Espera por ENTER para ser presionado.
+   351 0000009A E8C60A0000              	call LeerComando	
+   352                                  	
+   353 0000009F E95DFFFFFF              	jmp IngresarComando
+   354                                  	
+   355                                  ;-------------------------------------------------------------------------------------
+   356                                  ; Comprueba si "salir" fue digitado y hace lo correspondiente si fue o no ingresado. |
+   357                                  ;-------------------------------------------------------------------------------------
+   358                                  ComprobarSalir:
+   359                                  	; Verifica las letras restantes para "salir".
+   360 000000A4 803D[01000000]61        	cmp byte[buffer+1] , 'a'
+   361 000000AB 75CE                    	jne ErrorComando
+   362 000000AD 803D[02000000]6C        	cmp byte[buffer+2] , 'l'
+   363 000000B4 75C5                    	jne ErrorComando
+   364 000000B6 803D[03000000]69        	cmp byte[buffer+3] , 'i'
+   365 000000BD 75BC                    	jne ErrorComando
+   366 000000BF 803D[04000000]72        	cmp byte[buffer+4] , 'r'
+   367 000000C6 75B3                    	jne ErrorComando
+   368 000000C8 803D[05000000]0A        	cmp byte[buffer+5] , 10
+   369 000000CF 7409                    	je Sale
+   370 000000D1 803D[05000000]20        	cmp byte[buffer+5] ,' '
+   371 000000D8 75A1                    	jne ErrorComando
+   372                                  	
+   373                                  	Sale:
+   374                                  	; Si la instruccion fue salir se termina el ciclo moviendo una f a cl.
+   375 000000DA E9D60A0000              	jmp Fin
+   376                                  	
+   377                                  ;---------------------------------------------------------------------------------------
+   378                                  ; Comprueba si "mostrar" fue digitado y hace lo correspondiente si fue o no ingresado. |
+   379                                  ;---------------------------------------------------------------------------------------
+   380                                  ComprobarMostrar:
+   381                                  	; Verifica las letras restantes para "mostrar".
+   382 000000DF 803D[01000000]6F        	cmp byte[buffer+1] , 'o'
+   383 000000E6 7593                    	jne ErrorComando
+   384 000000E8 803D[02000000]73        	cmp byte[buffer+2] , 's'
+   385 000000EF 758A                    	jne ErrorComando
+   386 000000F1 803D[03000000]74        	cmp byte[buffer+3] , 't'
+   387 000000F8 7581                    	jne ErrorComando
+   388 000000FA 803D[04000000]72        	cmp byte[buffer+4] , 'r'
+   389 00000101 0F8574FFFFFF            	jne ErrorComando
+   390 00000107 803D[05000000]61        	cmp byte[buffer+5] , 'a'
+   391 0000010E 0F8567FFFFFF            	jne ErrorComando
+   392 00000114 803D[06000000]72        	cmp byte[buffer+6] , 'r'
+   393 0000011B 0F855AFFFFFF            	jne ErrorComando
+   394 00000121 803D[07000000]0A        	cmp byte[buffer+7] , 10
+   395 00000128 0F845C060000            	je PrimeraAyuda
+   396 0000012E 803D[07000000]20        	cmp byte[buffer+7] , ' '
+   397 00000135 0F8540FFFFFF            	jne ErrorComando
+   398 0000013B 803D[08000000]2D        	cmp byte[buffer+8] , '-'
+   399 00000142 BB09000000              	mov ebx,9
+   400 00000147 0F84AA060000            	je ComprobarAyuda
+   401                                  
+   402                                  	; Lee el nombre del archivo que se quiere mostrar.
+   403                                  	.leerNombreArchivo:
+   404 0000014D B908000000              		mov ecx, 8
+   405 00000152 31C0                    		xor eax,eax
+   406                                  		.ciclo:
+   407 00000154 80B9[00000000]0A        			cmp byte[buffer+ecx],10
+   408 0000015B 740F                    			je AbrirArchivo
+   409 0000015D 8A81[00000000]          			mov al,byte[buffer+ecx]
+   410 00000163 8881[5C000000]          			mov byte[bufferNomArchivo + ecx - 8] , al
+   411 00000169 41                      			inc ecx
+   412 0000016A EBE8                    			jmp .ciclo 
+   413                                  
+   414                                  	; Abre el archivo que se quiere mostrar
+   415                                  	AbrirArchivo:
+   416 0000016C BB[64000000]            		mov	ebx, bufferNomArchivo
+   417 00000171 B900000000              		mov	ecx, 0 ; Read only		
+   418 00000176 B805000000              		mov	eax, sys_open
+   419 0000017B CD80                    		int	80h
+   420                                  		
+   421                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+   422                                  	ChequeaError:
+   423 0000017D C705[16050000]0100-     		mov dword[numArchivo],1
+   424 00000185 0000               
+   425 00000187 85C0                    		test	eax, eax
+   426 00000189 0F88E6090000            		js	ErrorArchivo
+   427                                  
+   428                                  	; Sino ocurrio error, entonces se lee el archivo en un buffer.
+   429 0000018F 50                      	push eax
+   430 00000190 89C3                    	mov		ebx, eax
+   431 00000192 B9[C8000000]            	mov		ecx, bufferArchivo
+   432 00000197 BAB80B0000              	mov		edx, bufLenArchivo
+   433 0000019C B803000000              	mov		eax, sys_read		
+   434 000001A1 CD80                    	int 	80h
+   435                                  
+   436 000001A3 5B                      	pop ebx
+   437 000001A4 E8EA090000              	call CerrarArchivo
+   438                                  	
+   439                                  	; Se imprime en pantalla el archivo.
+   440 000001A9 B9[C8000000]            	mov ecx,bufferArchivo
+   441 000001AE BAB80B0000              	mov edx,bufLenArchivo
+   442 000001B3 E8E3090000              	call DisplayText
+   443                                  	
+   444                                  	; Simula la espera por un ENTER.
+   445 000001B8 E8A8090000              	call LeerComando
+   446 000001BD E93FFEFFFF              	jmp IngresarComando	
+   447                                  
+   448                                  ;---------------------------------------------------------------------------------------
+   449                                  ; Comprueba si "borrar" fue digitado y hace lo correspondiente si fue o no ingresado.  |
+   450                                  ;---------------------------------------------------------------------------------------
+   451                                  ComprobarBorrar:
+   452                                  	; Verifica las letras restantes para "borrar".
+   453 000001C2 803D[01000000]6F        	cmp byte[buffer+1] , 'o'
+   454 000001C9 0F85ACFEFFFF            	jne ErrorComando
+   455 000001CF 803D[02000000]72        	cmp byte[buffer+2] , 'r'
+   456 000001D6 0F859FFEFFFF            	jne ErrorComando
+   457 000001DC 803D[03000000]72        	cmp byte[buffer+3] , 'r'
+   458 000001E3 0F8592FEFFFF            	jne ErrorComando
+   459 000001E9 803D[04000000]61        	cmp byte[buffer+4] , 'a'
+   460 000001F0 0F8585FEFFFF            	jne ErrorComando
+   461 000001F6 803D[05000000]72        	cmp byte[buffer+5] , 'r'
+   462 000001FD 0F8578FEFFFF            	jne ErrorComando
+   463 00000203 803D[06000000]0A        	cmp byte[buffer+6] , 10
+   464 0000020A 0F847A050000            	je PrimeraAyuda
+   465 00000210 803D[06000000]20        	cmp byte[buffer+6] , ' '
+   466 00000217 0F855EFEFFFF            	jne ErrorComando
+   467 0000021D 803D[07000000]2D        	cmp byte[buffer+7] , '-'
+   468 00000224 BB08000000              	mov ebx,8
+   469 00000229 0F84C8050000            	je ComprobarAyuda
+   470                                  
+   471                                  	; Lee el nombre del archivo que se quiere borrar.
+   472                                  	.leerNombreArchivo:
+   473 0000022F B907000000              		mov ecx, 7
+   474 00000234 31C0                    		xor eax,eax
+   475                                  		.ciclo:
+   476 00000236 80B9[00000000]0A        			cmp byte[buffer+ecx],10
+   477 0000023D 741F                    			je BorrarArchivo
+   478 0000023F 80B9[00000000]20        			cmp byte[buffer+ecx],' '
+   479 00000246 740F                    			je PosibleForzado
+   480 00000248 8A81[00000000]          			mov al,byte[buffer+ecx]
+   481 0000024E 8881[5D000000]          			mov byte[bufferNomArchivo + ecx - 7] , al
+   482 00000254 41                      			inc ecx
+   483 00000255 EBDF                    			jmp .ciclo
+   484                                  	
+   485                                  	; Llama a la funcion ComprobarForzado para analizar si el parametro fue escrito.
    486                                  	PosibleForzado:
-   487 000002A4 E862060000              			call ComprobarForzado
-   488 000002A9 7421                    			je NoPreguntaBorrar
+   487 00000257 E8A3060000              			call ComprobarForzado
+   488 0000025C 7421                    			je NoPreguntaBorrar
    489                                  		
    490                                  	
    491                                  	;--------------------------------
@@ -493,782 +493,1043 @@
    493                                  	;--------------------------------
    494                                  	BorrarArchivo:
    495                                  		; Pregunta si esta seguro que desea borrar.
-   496 000002AB BA33000000              		mov edx,lenPregBorrar
-   497 000002B0 B9[F3000000]            		mov ecx,pregBorrar
-   498 000002B5 E8F9060000              		call DisplayText
+   496 0000025E BA33000000              		mov edx,lenPregBorrar
+   497 00000263 B9[F9000000]            		mov ecx,pregBorrar
+   498 00000268 E82E090000              		call DisplayText
    499                                  		
    500                                  		; Lee la opcion escogida.
-   501 000002BA E8CB060000              		call LeerComando
+   501 0000026D E8F3080000              		call LeerComando
    502                                  		
-   503 000002BF 803D[00000000]73        		cmp byte[buffer],'s'
-   504 000002C6 0F850FFEFFFF            		jne Continuar
+   503 00000272 803D[00000000]73        		cmp byte[buffer],'s'
+   504 00000279 0F8582FDFFFF            		jne IngresarComando
    505                                  		
    506                                  		NoPreguntaBorrar:
    507                                  			; Se dispone a borrar si la opcion fue 's'
-   508 000002CC BA18000000              			mov edx, lenBorrando
-   509 000002D1 B9[89000000]            			mov ecx, msgBorrando
-   510 000002D6 E8D8060000              			call DisplayText
+   508 0000027F BA18000000              			mov edx, lenBorrando
+   509 00000284 B9[8F000000]            			mov ecx, msgBorrando
+   510 00000289 E80D090000              			call DisplayText
    511                                  			
    512                                  			; Se intenta borrar el archivo.
-   513 000002DB BB[64000000]            			mov ebx, bufferNomArchivo
-   514 000002E0 B80A000000              			mov eax, sys_unlink
-   515 000002E5 CD80                    			int 0x80
-   516 000002E7 83F800                  			cmp eax, 0
-   517 000002EA 7411                    			je .sucess
+   513 0000028E BB[64000000]            			mov ebx, bufferNomArchivo
+   514 00000293 B80A000000              			mov eax, sys_unlink
+   515 00000298 CD80                    			int 0x80
+   516 0000029A 83F800                  			cmp eax, 0
+   517 0000029D 7420                    			je .sucess
    518                                  			
    519                                  			; Mensaje de no se pudo borrar el archivo.
    520                                  			.fail:
-   521 000002EC B9[A1000000]            				mov ecx, msg_fail
-   522 000002F1 BA27000000              				mov edx,lenFail
-   523 000002F6 E8B8060000              				call DisplayText
-   524 000002FB EB0F                    				jmp .Done
-   525                                  			
-   526                                  			; Mensaje de el borrado fue exitoso.
-   527                                  			.sucess:
-   528 000002FD B9[C8000000]            				mov ecx,msg_success
-   529 00000302 BA2B000000              				mov edx,lenSuccess
-   530 00000307 E8A7060000              				call DisplayText
-   531                                  			
-   532                                  			; Simula la espera de un ENTER.
-   533                                  			.Done:
-   534 0000030C E879060000              				call LeerComando
-   535                                  		
-   536 00000311 E9C5FDFFFF              		jmp Continuar
-   537                                  
-   538                                  ;---------------------------------------------------------------------------------------
-   539                                  ; Comprueba si "renombrar" fue digitado y hace lo correspondiente si fue o no ingresado. |
-   540                                  ;---------------------------------------------------------------------------------------
-   541                                  ComprobarRenombrar:
-   542                                  	; Verifica las letras restantes para "renombrar".
-   543 00000316 803D[01000000]65        	cmp byte[buffer+1] , 'e'
-   544 0000031D 0F85CAFDFFFF            	jne ErrorComando
-   545 00000323 803D[02000000]6E        	cmp byte[buffer+2] , 'n'
-   546 0000032A 0F85BDFDFFFF            	jne ErrorComando
-   547 00000330 803D[03000000]6F        	cmp byte[buffer+3] , 'o'
-   548 00000337 0F85B0FDFFFF            	jne ErrorComando
-   549 0000033D 803D[04000000]6D        	cmp byte[buffer+4] , 'm'
-   550 00000344 0F85A3FDFFFF            	jne ErrorComando
-   551 0000034A 803D[05000000]62        	cmp byte[buffer+5] , 'b'
-   552 00000351 0F8596FDFFFF            	jne ErrorComando
-   553 00000357 803D[06000000]72        	cmp byte[buffer+6] , 'r'
-   554 0000035E 0F8589FDFFFF            	jne ErrorComando
-   555 00000364 803D[07000000]61        	cmp byte[buffer+7] , 'a'
-   556 0000036B 0F857CFDFFFF            	jne ErrorComando
-   557 00000371 803D[08000000]72        	cmp byte[buffer+8] , 'r'
-   558 00000378 0F856FFDFFFF            	jne ErrorComando
-   559 0000037E 803D[09000000]0A        	cmp byte[buffer+9] , 10
-   560 00000385 0F840B040000            	je PrimeraAyuda
-   561 0000038B 803D[09000000]20        	cmp byte[buffer+9] , ' '
-   562 00000392 0F8555FDFFFF            	jne ErrorComando
-   563 00000398 803D[0A000000]2D        	cmp byte[buffer+10] , '-'
-   564 0000039F BB0B000000              	mov ebx,11
-   565 000003A4 0F8459040000            	je ComprobarAyuda
-   566                                  	
-   567                                  	; Lee el nombre del archivo que se quiere renombrar.
-   568                                  	leerNombreArchivo1:
-   569 000003AA B90A000000              		mov ecx, 10
-   570 000003AF 31C0                    		xor eax,eax
-   571                                  		.ciclo:
-   572 000003B1 80B9[00000000]20        			cmp byte[buffer+ecx],' '
-   573 000003B8 740F                    			je leerNombreArchivo2
-   574 000003BA 8A81[00000000]          			mov al,byte[buffer+ecx]
-   575 000003C0 8881[5A000000]          			mov byte[bufferNomArchivo + ecx - 10] , al
-   576 000003C6 41                      			inc ecx
-   577 000003C7 EBE8                    			jmp .ciclo
-   578                                  
-   579                                  	; Lee el nuevo nombre que se desea poner.
-   580                                  	leerNombreArchivo2:
-   581 000003C9 41                      		inc	ecx
-   582 000003CA 89CB                    		mov ebx, ecx
-   583 000003CC 31C0                    		xor eax,eax
-   584                                  		.ciclo:
-   585 000003CE 80B9[00000000]0A        			cmp byte[buffer+ecx],10
-   586 000003D5 7423                    			je RenArchivo
-   587 000003D7 80B9[00000000]20        			cmp byte[buffer+ecx],' '
-   588 000003DE 7413                    			je PosibleForzado2
-   589 000003E0 8A81[00000000]          			mov al,byte[buffer+ecx]
-   590 000003E6 51                      			push ecx
-   591 000003E7 29D9                    			sub ecx,ebx
-   592 000003E9 8881[96000000]          			mov byte[bufferNomArchivo2 + ecx] , al
-   593 000003EF 59                      			pop ecx
-   594 000003F0 41                      			inc ecx
-   595 000003F1 EBDB                    			jmp .ciclo
-   596                                  	
-   597                                  	PosibleForzado2:
-   598 000003F3 E813050000              		call ComprobarForzado
-   599 000003F8 7421                    		je NoPreguntaRen
-   600                                  	
-   601                                  	
-   602                                  	;-----------------------------------		
-   603                                  	; Pasos para renombrar el archivo. |
-   604                                  	;-----------------------------------
-   605                                  	RenArchivo:
-   606                                  
-   607                                  		; Pregunta si esta seguro que desea renombrar.
-   608 000003FA BA34000000              		mov edx,lenPregRenom
-   609 000003FF B9[26010000]            		mov ecx,pregRenom
-   610 00000404 E8AA050000              		call DisplayText
-   611                                  		
-   612                                  		; Lee la opcion escogida.
-   613 00000409 E87C050000              		call LeerComando
+   521 0000029F C705[16050000]0100-     				mov dword[numArchivo],1
+   522 000002A7 0000               
+   523 000002A9 E843070000              				call RegistrarError
+   524 000002AE B9[A7000000]            				mov ecx, msg_fail
+   525 000002B3 BA27000000              				mov edx,lenFail
+   526 000002B8 E8DE080000              				call DisplayText
+   527 000002BD EB0F                    				jmp .Done
+   528                                  			
+   529                                  			; Mensaje de el borrado fue exitoso.
+   530                                  			.sucess:
+   531 000002BF B9[CE000000]            				mov ecx,msg_success
+   532 000002C4 BA2B000000              				mov edx,lenSuccess
+   533 000002C9 E8CD080000              				call DisplayText
+   534                                  			
+   535                                  			; Simula la espera de un ENTER.
+   536                                  			.Done:
+   537 000002CE E892080000              				call LeerComando
+   538                                  		
+   539 000002D3 E929FDFFFF              		jmp IngresarComando
+   540                                  
+   541                                  ;---------------------------------------------------------------------------------------
+   542                                  ; Comprueba si "renombrar" fue digitado y hace lo correspondiente si fue o no ingresado. |
+   543                                  ;---------------------------------------------------------------------------------------
+   544                                  ComprobarRenombrar:
+   545                                  	; Verifica las letras restantes para "renombrar".
+   546 000002D8 803D[01000000]65        	cmp byte[buffer+1] , 'e'
+   547 000002DF 0F8596FDFFFF            	jne ErrorComando
+   548 000002E5 803D[02000000]6E        	cmp byte[buffer+2] , 'n'
+   549 000002EC 0F8589FDFFFF            	jne ErrorComando
+   550 000002F2 803D[03000000]6F        	cmp byte[buffer+3] , 'o'
+   551 000002F9 0F857CFDFFFF            	jne ErrorComando
+   552 000002FF 803D[04000000]6D        	cmp byte[buffer+4] , 'm'
+   553 00000306 0F856FFDFFFF            	jne ErrorComando
+   554 0000030C 803D[05000000]62        	cmp byte[buffer+5] , 'b'
+   555 00000313 0F8562FDFFFF            	jne ErrorComando
+   556 00000319 803D[06000000]72        	cmp byte[buffer+6] , 'r'
+   557 00000320 0F8555FDFFFF            	jne ErrorComando
+   558 00000326 803D[07000000]61        	cmp byte[buffer+7] , 'a'
+   559 0000032D 0F8548FDFFFF            	jne ErrorComando
+   560 00000333 803D[08000000]72        	cmp byte[buffer+8] , 'r'
+   561 0000033A 0F853BFDFFFF            	jne ErrorComando
+   562 00000340 803D[09000000]0A        	cmp byte[buffer+9] , 10
+   563 00000347 0F843D040000            	je PrimeraAyuda
+   564 0000034D 803D[09000000]20        	cmp byte[buffer+9] , ' '
+   565 00000354 0F8521FDFFFF            	jne ErrorComando
+   566 0000035A 803D[0A000000]2D        	cmp byte[buffer+10] , '-'
+   567 00000361 BB0B000000              	mov ebx,11
+   568 00000366 0F848B040000            	je ComprobarAyuda
+   569                                  	
+   570                                  	; Lee el nombre del archivo que se quiere renombrar.
+   571                                  	leerNombreArchivo1:
+   572 0000036C B90A000000              		mov ecx, 10
+   573 00000371 31C0                    		xor eax,eax
+   574                                  		.ciclo:
+   575 00000373 80B9[00000000]20        			cmp byte[buffer+ecx],' '
+   576 0000037A 740F                    			je leerNombreArchivo2
+   577 0000037C 8A81[00000000]          			mov al,byte[buffer+ecx]
+   578 00000382 8881[5A000000]          			mov byte[bufferNomArchivo + ecx - 10] , al
+   579 00000388 41                      			inc ecx
+   580 00000389 EBE8                    			jmp .ciclo
+   581                                  
+   582                                  	; Lee el nuevo nombre que se desea poner.
+   583                                  	leerNombreArchivo2:
+   584 0000038B 41                      		inc	ecx
+   585 0000038C 89CB                    		mov ebx, ecx
+   586 0000038E 31C0                    		xor eax,eax
+   587                                  		.ciclo:
+   588 00000390 80B9[00000000]0A        			cmp byte[buffer+ecx],10
+   589 00000397 7423                    			je RenArchivo
+   590 00000399 80B9[00000000]20        			cmp byte[buffer+ecx],' '
+   591 000003A0 7413                    			je PosibleForzado2
+   592 000003A2 8A81[00000000]          			mov al,byte[buffer+ecx]
+   593 000003A8 51                      			push ecx
+   594 000003A9 29D9                    			sub ecx,ebx
+   595 000003AB 8881[96000000]          			mov byte[bufferNomArchivo2 + ecx] , al
+   596 000003B1 59                      			pop ecx
+   597 000003B2 41                      			inc ecx
+   598 000003B3 EBDB                    			jmp .ciclo
+   599                                  	
+   600                                  	PosibleForzado2:
+   601 000003B5 E845050000              		call ComprobarForzado
+   602 000003BA 7421                    		je NoPreguntaRen
+   603                                  	
+   604                                  	
+   605                                  	;-----------------------------------		
+   606                                  	; Pasos para renombrar el archivo. |
+   607                                  	;-----------------------------------
+   608                                  	RenArchivo:
+   609                                  
+   610                                  		; Pregunta si esta seguro que desea renombrar.
+   611 000003BC BA34000000              		mov edx,lenPregRenom
+   612 000003C1 B9[2C010000]            		mov ecx,pregRenom
+   613 000003C6 E8D0070000              		call DisplayText
    614                                  		
-   615 0000040E 803D[00000000]73        		cmp byte[buffer],'s'
-   616 00000415 0F85C0FCFFFF            		jne Continuar
-   617                                  	
-   618                                  		NoPreguntaRen:
-   619                                  			
-   620                                  			; Renombrar archivo
-   621 0000041B BB[64000000]            			mov ebx, bufferNomArchivo             
-   622 00000420 B826000000              			mov eax, sys_rename          
-   623 00000425 B9[96000000]            			mov ecx, bufferNomArchivo2              
-   624 0000042A CD80                    			int 80h                    
-   625 0000042C 83F800                  			cmp eax, 0
-   626 0000042F 7E11                    			jle .sucess 	
-   627                                  			
-   628                                  			; Mostrar mensaje de no se pudo completar.
-   629                                  			.fail:
-   630 00000431 B9[A1000000]            				mov ecx, msg_fail
-   631 00000436 BA27000000              				mov edx,lenFail
-   632 0000043B E873050000              				call DisplayText
-   633 00000440 EB0F                    				jmp .Done
-   634                                  				
-   635                                  			; Mostrar mensaje de operacion exitosa.	
-   636                                  			.sucess:
-   637 00000442 B9[C8000000]            				mov ecx,msg_success
-   638 00000447 BA2B000000              				mov edx,lenSuccess
-   639 0000044C E862050000              				call DisplayText
-   640                                  			
-   641                                  			; Simular espera por ENTER
-   642                                  			.Done:
-   643 00000451 E834050000              				call LeerComando
-   644                                  
-   645 00000456 E980FCFFFF              		jmp Continuar
-   646                                  	
-   647                                  ;---------------------------------------
-   648                                  ; Se distingue entre Copiar y Comparar |
-   649                                  ;---------------------------------------
-   650                                  ComprobarCopiarOComparar:
-   651 0000045B 803D[02000000]70        	cmp byte[buffer+2] , 'p'
-   652 00000462 7418                    	je ComprobarCopiar
-   653 00000464 803D[02000000]6D        	cmp byte[buffer+2] , 'm'
-   654 0000046B 0F84DE000000            	je ComprobarComparar
-   655 00000471 0F8576FCFFFF            	jne ErrorComando
-   656 00000477 E951050000              	jmp Fin
-   657                                  
-   658                                  
-   659                                  ;---------------------------------------------------------------------------------------
-   660                                  ; Comprueba si "copiar" fue digitado y hace lo correspondiente si fue o no ingresado.  |
-   661                                  ;---------------------------------------------------------------------------------------
-   662                                  ComprobarCopiar:
-   663                                  	; Verifica las letras restantes para "copiar".
-   664 0000047C 803D[03000000]69        	cmp byte[buffer+3] , 'i'
-   665 00000483 0F8564FCFFFF            	jne ErrorComando
-   666 00000489 803D[04000000]61        	cmp byte[buffer+4] , 'a'
-   667 00000490 0F8557FCFFFF            	jne ErrorComando
-   668 00000496 803D[05000000]72        	cmp byte[buffer+5] , 'r'
-   669 0000049D 0F854AFCFFFF            	jne ErrorComando
-   670 000004A3 803D[06000000]0A        	cmp byte[buffer+6] , 10
-   671 000004AA 0F84E6020000            	je PrimeraAyuda
-   672 000004B0 803D[06000000]20        	cmp byte[buffer+6] , ' '
-   673 000004B7 0F8530FCFFFF            	jne ErrorComando
-   674 000004BD 803D[07000000]2D        	cmp byte[buffer+7] , '-'
-   675 000004C4 BB08000000              	mov ebx,8
-   676 000004C9 0F8434030000            	je ComprobarAyuda
-   677                                  
-   678                                  	; Lee el nombre del archivo que se quiere copiar.
-   679                                  	_LeerNombreArchivo:
-   680 000004CF B907000000              		mov ecx, 7
-   681 000004D4 31C0                    		xor eax,eax
-   682                                  		.ciclo:
-   683 000004D6 80B9[00000000]20        			cmp byte[buffer+ecx],' '
-   684 000004DD 740F                    			je _LeerNombreArchivo2
-   685 000004DF 8A81[00000000]          			mov al,byte[buffer+ecx]
-   686 000004E5 8881[5D000000]          			mov byte[bufferNomArchivo + ecx - 7] , al
-   687 000004EB 41                      			inc ecx
-   688 000004EC EBE8                    			jmp .ciclo
-   689                                  	
-   690                                  	; Lee el nombre que se quiere asignar a la copia.
-   691                                  	_LeerNombreArchivo2:
-   692 000004EE 41                      		inc	ecx
-   693 000004EF 89CB                    		mov ebx, ecx
-   694 000004F1 31C0                    		xor eax,eax
-   695                                  		.ciclo:
-   696 000004F3 80B9[00000000]0A        			cmp byte[buffer+ecx],10
-   697 000004FA 7413                    			je CopiarArchivo
-   698 000004FC 8A81[00000000]          			mov al,byte[buffer+ecx]
-   699 00000502 51                      			push ecx
-   700 00000503 29D9                    			sub ecx,ebx
-   701 00000505 8881[96000000]          			mov byte[bufferNomArchivo2 + ecx] , al
-   702 0000050B 59                      			pop ecx
-   703 0000050C 41                      			inc ecx
-   704 0000050D EBE4                    			jmp .ciclo
-   705                                  			
-   706                                  			
-   707                                  	;-----------------------------------		
-   708                                  	; Pasos para copiar el archivo.    |
-   709                                  	;-----------------------------------
-   710                                  	CopiarArchivo:
-   711                                  		
-   712                                  		; Intenta copiar el archivo	
-   713 0000050F BB[64000000]            		mov ebx, bufferNomArchivo             
-   714 00000514 B809000000              		mov eax, sys_link          
-   715 00000519 B9[96000000]            		mov ecx, bufferNomArchivo2              
-   716 0000051E CD80                    		int 0x80                    
-   717 00000520 83F800                  		cmp eax, 0
-   718 00000523 7E11                    		jle .sucess               
-   719                                  		
-   720                                  		; Mostrar mensaje de no se pudo completar.
-   721                                  		.fail:
-   722 00000525 B9[A1000000]            			mov ecx, msg_fail
-   723 0000052A BA27000000              			mov edx,lenFail
-   724 0000052F E87F040000              			call DisplayText
-   725 00000534 EB0F                    			jmp .Done
-   726                                  
-   727                                  		; Mostrar mensaje de operacion exitosa.
-   728                                  		.sucess:
-   729 00000536 B9[C8000000]            			mov ecx,msg_success
-   730 0000053B BA2B000000              			mov edx,lenSuccess
-   731 00000540 E86E040000              			call DisplayText
-   732                                  
-   733                                  		; Espera por ENTER
-   734                                  		.Done:
-   735 00000545 E840040000              			call LeerComando
-   736                                  			
-   737 0000054A E98CFBFFFF              		jmp Continuar
-   738                                  
-   739                                  
-   740                                  ;----------------------------------------------------------------------------------------
-   741                                  ; Comprueba si "comparar" fue digitado y hace lo correspondiente si fue o no ingresado. |
-   742                                  ;----------------------------------------------------------------------------------------
-   743                                  ComprobarComparar:
-   744                                  	; Verifica las letras restantes para "comparar".
-   745 0000054F 803D[03000000]70        	cmp byte[buffer+3] , 'p'
-   746 00000556 0F8591FBFFFF            	jne ErrorComando
-   747 0000055C 803D[04000000]61        	cmp byte[buffer+4] , 'a'
-   748 00000563 0F8584FBFFFF            	jne ErrorComando
-   749 00000569 803D[05000000]72        	cmp byte[buffer+5] , 'r'
-   750 00000570 0F8577FBFFFF            	jne ErrorComando
-   751 00000576 803D[06000000]61        	cmp byte[buffer+6] , 'a'
-   752 0000057D 0F856AFBFFFF            	jne ErrorComando	
-   753 00000583 803D[07000000]72        	cmp byte[buffer+7] , 'r'
-   754 0000058A 0F855DFBFFFF            	jne ErrorComando	
-   755 00000590 803D[08000000]0A        	cmp byte[buffer+8] , 10
-   756 00000597 0F84F9010000            	je PrimeraAyuda
-   757 0000059D 803D[08000000]20        	cmp byte[buffer+8] , ' '
-   758 000005A4 0F8543FBFFFF            	jne ErrorComando
-   759 000005AA 803D[09000000]2D        	cmp byte[buffer+9] , '-'
-   760 000005B1 BB0A000000              	mov ebx,10
-   761 000005B6 0F8447020000            	je ComprobarAyuda
-   762                                  	
-   763                                  	; Lee el nombre del archivo que se quiere renombrar.
-   764                                  	leerNombreArchivoCmp1:
-   765 000005BC B909000000              		mov ecx, 9
-   766 000005C1 31C0                    		xor eax,eax
-   767                                  		.ciclo:
-   768 000005C3 80B9[00000000]20        			cmp byte[buffer+ecx],' '
-   769 000005CA 740F                    			je leerNombreArchivoCmp2
-   770 000005CC 8A81[00000000]          			mov al,byte[buffer+ecx]
-   771 000005D2 8881[5B000000]          			mov byte[bufferNomArchivo + ecx - 9] , al
-   772 000005D8 41                      			inc ecx
-   773 000005D9 EBE8                    			jmp .ciclo
-   774                                  
-   775                                  	; Lee el nuevo nombre que se desea poner.
-   776                                  	leerNombreArchivoCmp2:
-   777 000005DB 41                      		inc	ecx
-   778 000005DC 89CB                    		mov ebx, ecx
-   779 000005DE 31C0                    		xor eax,eax
-   780                                  		.ciclo:
-   781 000005E0 80B9[00000000]0A        			cmp byte[buffer+ecx],10
-   782 000005E7 7413                    			je CompArchivos
-   783 000005E9 8A81[00000000]          			mov al,byte[buffer+ecx]
-   784 000005EF 51                      			push ecx
-   785 000005F0 29D9                    			sub ecx,ebx
-   786 000005F2 8881[96000000]          			mov byte[bufferNomArchivo2 + ecx] , al
-   787 000005F8 59                      			pop ecx
-   788 000005F9 41                      			inc ecx
-   789 000005FA EBE4                    			jmp .ciclo
-   790                                  		
-   791                                  
-   792                                  CompArchivos:
-   793                                  	.AbrirArchivo:
-   794 000005FC BB[64000000]            	mov	ebx, bufferNomArchivo
-   795 00000601 B900000000              	mov	ecx, 0 ; Read only		
-   796 00000606 B805000000              	mov	eax, sys_open
-   797 0000060B CD80                    	int	80h
-   798                                  		
-   799                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
-   800                                  	.ChequeaError:
-   801 0000060D 85C0                    		test	eax, eax
-   802 0000060F 0F8885030000            		js	ErrorArchivo
-   803                                  
-   804                                  	; Sino ocurrio error, entonces se lee el archivo en un buffer.
-   805 00000615 89C3                    	mov		ebx, eax
-   806 00000617 B9[C8000000]            	mov		ecx, bufferArchivo
-   807 0000061C BA40060000              	mov		edx, bufLenArchivo
-   808 00000621 B803000000              	mov		eax, sys_read		
-   809 00000626 CD80                    	int 	80h
-   810                                  	
-   811 00000628 BB[96000000]            	mov	ebx, bufferNomArchivo2
-   812 0000062D B900000000              	mov	ecx, 0 ; Read only		
-   813 00000632 B805000000              	mov	eax, sys_open
-   814 00000637 CD80                    	int	80h
-   815                                  		
-   816                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
-   817                                  	.ChequeaError2:
-   818 00000639 85C0                    		test	eax, eax
-   819 0000063B 0F8859030000            		js	ErrorArchivo
-   820                                  
-   821                                  	; Sino ocurrio error, entonces se lee el archivo en un buffer.
-   822 00000641 89C3                    	mov		ebx, eax
-   823 00000643 B9[08070000]            	mov		ecx, bufferArchivo2
-   824 00000648 BA40060000              	mov		edx, bufLenArchivo2
-   825 0000064D B803000000              	mov		eax, sys_read		
-   826 00000652 CD80                    	int 	80h
-   827                                  	
-   828 00000654 C605[DE030000]01        	mov byte[contador],1
-   829 0000065B 31C9                    	xor ecx,ecx
-   830 0000065D 31C0                    	xor eax,eax
-   831 0000065F 31DB                    	xor ebx,ebx
-   832 00000661 31D2                    	xor edx,edx
-   833                                  
-   834                                  ;----------------------------------------------------------------------------		
-   835                                  ;	Ciclo principal en la etapa de comparar las lineas de los archivos  	|	
-   836                                  ;----------------------------------------------------------------------------
-   837                                  
-   838                                  	.comparar:
-   839 00000663 8A91[C8000000]          		mov dl,byte[bufferArchivo+ecx]
-   840 00000669 8A98[08070000]          		mov bl,byte[bufferArchivo2+eax]
-   841 0000066F 80FA00                  		cmp dl,0
-   842 00000672 0F84BD000000            		je .termina1
-   843 00000678 80FB00                  		cmp bl,0
-   844 0000067B 0F84D3000000            		je .termina2
-   845 00000681 38DA                    		cmp dl,bl
-   846 00000683 757A                    		jne .agregarMensajeLinea
-   847 00000685 80FB0A                  		cmp bl,10
-   848 00000688 7409                    		je .continuaArchivo1
-   849 0000068A 80FA0A                  		cmp dl,10
-   850 0000068D 741B                    		je .continuaArchivo2
-   851 0000068F 38DA                    		cmp dl,bl
-   852 00000691 7454                    		je .continua
-   853                                  
-   854                                  ;ciclo mueve el ecx al proximo enter, siendo ecx el indice del buffer con
-   855                                  ;la informacion del archivo
-   856                                  ;recorriendo la linea hasta el final para continuar
-   857                                  ;al terminar binca a la parte donde se aumenta el contador de lineas
-   858                                  			
-   859                                  	.continuaArchivo1:
-   860 00000693 8A91[C8000000]          		mov dl,byte[bufferArchivo+ecx]
-   861 00000699 83FA00                  		cmp edx,0
-   862 0000069C 0F8493000000            		je .termina1
-   863 000006A2 83FA0A                  		cmp edx,10
-   864 000006A5 7447                    		je .aumentarLinea
-   865 000006A7 41                      		inc ecx
-   866 000006A8 EBE9                    		jmp .continuaArchivo1
+   615                                  		; Lee la opcion escogida.
+   616 000003CB E895070000              		call LeerComando
+   617                                  		
+   618 000003D0 803D[00000000]73        		cmp byte[buffer],'s'
+   619 000003D7 0F8524FCFFFF            		jne IngresarComando
+   620                                  	
+   621                                  		NoPreguntaRen:
+   622                                  			
+   623                                  			; Renombrar archivo
+   624 000003DD BB[64000000]            			mov ebx, bufferNomArchivo             
+   625 000003E2 B826000000              			mov eax, sys_rename          
+   626 000003E7 B9[96000000]            			mov ecx, bufferNomArchivo2              
+   627 000003EC CD80                    			int 80h                    
+   628 000003EE 83F800                  			cmp eax, 0
+   629 000003F1 7E20                    			jle .sucess 	
+   630                                  			
+   631                                  			; Mostrar mensaje de no se pudo completar.
+   632                                  			.fail:
+   633 000003F3 C705[16050000]0100-     				mov dword[numArchivo],1
+   634 000003FB 0000               
+   635 000003FD E8EF050000              				call RegistrarError
+   636 00000402 B9[A7000000]            				mov ecx, msg_fail
+   637 00000407 BA27000000              				mov edx,lenFail
+   638 0000040C E88A070000              				call DisplayText
+   639 00000411 EB0F                    				jmp .Done
+   640                                  				
+   641                                  			; Mostrar mensaje de operacion exitosa.	
+   642                                  			.sucess:
+   643 00000413 B9[CE000000]            				mov ecx,msg_success
+   644 00000418 BA2B000000              				mov edx,lenSuccess
+   645 0000041D E879070000              				call DisplayText
+   646                                  			
+   647                                  			; Simular espera por ENTER
+   648                                  			.Done:
+   649 00000422 E83E070000              				call LeerComando
+   650                                  
+   651 00000427 E9D5FBFFFF              		jmp IngresarComando
+   652                                  	
+   653                                  ;---------------------------------------
+   654                                  ; Se distingue entre Copiar y Comparar |
+   655                                  ;---------------------------------------
+   656                                  ComprobarCopiarOComparar:
+   657 0000042C 803D[02000000]70        	cmp byte[buffer+2] , 'p'
+   658 00000433 7418                    	je ComprobarCopiar
+   659 00000435 803D[02000000]6D        	cmp byte[buffer+2] , 'm'
+   660 0000043C 0F84ED000000            	je ComprobarComparar
+   661 00000442 0F8533FCFFFF            	jne ErrorComando
+   662 00000448 E968070000              	jmp Fin
+   663                                  
+   664                                  
+   665                                  ;---------------------------------------------------------------------------------------
+   666                                  ; Comprueba si "copiar" fue digitado y hace lo correspondiente si fue o no ingresado.  |
+   667                                  ;---------------------------------------------------------------------------------------
+   668                                  ComprobarCopiar:
+   669                                  	; Verifica las letras restantes para "copiar".
+   670 0000044D 803D[03000000]69        	cmp byte[buffer+3] , 'i'
+   671 00000454 0F8521FCFFFF            	jne ErrorComando
+   672 0000045A 803D[04000000]61        	cmp byte[buffer+4] , 'a'
+   673 00000461 0F8514FCFFFF            	jne ErrorComando
+   674 00000467 803D[05000000]72        	cmp byte[buffer+5] , 'r'
+   675 0000046E 0F8507FCFFFF            	jne ErrorComando
+   676 00000474 803D[06000000]0A        	cmp byte[buffer+6] , 10
+   677 0000047B 0F8409030000            	je PrimeraAyuda
+   678 00000481 803D[06000000]20        	cmp byte[buffer+6] , ' '
+   679 00000488 0F85EDFBFFFF            	jne ErrorComando
+   680 0000048E 803D[07000000]2D        	cmp byte[buffer+7] , '-'
+   681 00000495 BB08000000              	mov ebx,8
+   682 0000049A 0F8457030000            	je ComprobarAyuda
+   683                                  
+   684                                  	; Lee el nombre del archivo que se quiere copiar.
+   685                                  	_LeerNombreArchivo:
+   686 000004A0 B907000000              		mov ecx, 7
+   687 000004A5 31C0                    		xor eax,eax
+   688                                  		.ciclo:
+   689 000004A7 80B9[00000000]20        			cmp byte[buffer+ecx],' '
+   690 000004AE 740F                    			je _LeerNombreArchivo2
+   691 000004B0 8A81[00000000]          			mov al,byte[buffer+ecx]
+   692 000004B6 8881[5D000000]          			mov byte[bufferNomArchivo + ecx - 7] , al
+   693 000004BC 41                      			inc ecx
+   694 000004BD EBE8                    			jmp .ciclo
+   695                                  	
+   696                                  	; Lee el nombre que se quiere asignar a la copia.
+   697                                  	_LeerNombreArchivo2:
+   698 000004BF 41                      		inc	ecx
+   699 000004C0 89CB                    		mov ebx, ecx
+   700 000004C2 31C0                    		xor eax,eax
+   701                                  		.ciclo:
+   702 000004C4 80B9[00000000]0A        			cmp byte[buffer+ecx],10
+   703 000004CB 7413                    			je CopiarArchivo
+   704 000004CD 8A81[00000000]          			mov al,byte[buffer+ecx]
+   705 000004D3 51                      			push ecx
+   706 000004D4 29D9                    			sub ecx,ebx
+   707 000004D6 8881[96000000]          			mov byte[bufferNomArchivo2 + ecx] , al
+   708 000004DC 59                      			pop ecx
+   709 000004DD 41                      			inc ecx
+   710 000004DE EBE4                    			jmp .ciclo
+   711                                  			
+   712                                  			
+   713                                  	;-----------------------------------		
+   714                                  	; Pasos para copiar el archivo.    |
+   715                                  	;-----------------------------------
+   716                                  	CopiarArchivo:
+   717                                  		
+   718                                  		; Intenta copiar el archivo	
+   719 000004E0 BB[64000000]            		mov ebx, bufferNomArchivo             
+   720 000004E5 B809000000              		mov eax, sys_link          
+   721 000004EA B9[96000000]            		mov ecx, bufferNomArchivo2              
+   722 000004EF CD80                    		int 0x80                    
+   723 000004F1 83F800                  		cmp eax, 0
+   724 000004F4 7E20                    		jle .sucess               
+   725                                  		
+   726                                  		; Mostrar mensaje de no se pudo completar.
+   727                                  		.fail:
+   728 000004F6 C705[16050000]0100-     			mov dword[numArchivo],1
+   729 000004FE 0000               
+   730 00000500 E8EC040000              			call RegistrarError
+   731 00000505 B9[A7000000]            			mov ecx, msg_fail
+   732 0000050A BA27000000              			mov edx,lenFail
+   733 0000050F E887060000              			call DisplayText
+   734 00000514 EB0F                    			jmp .Done
+   735                                  
+   736                                  		; Mostrar mensaje de operacion exitosa.
+   737                                  		.sucess:
+   738 00000516 B9[CE000000]            			mov ecx,msg_success
+   739 0000051B BA2B000000              			mov edx,lenSuccess
+   740 00000520 E876060000              			call DisplayText
+   741                                  
+   742                                  		; Espera por ENTER
+   743                                  		.Done:
+   744 00000525 E83B060000              			call LeerComando
+   745                                  			
+   746 0000052A E9D2FAFFFF              		jmp IngresarComando
+   747                                  
+   748                                  
+   749                                  ;----------------------------------------------------------------------------------------
+   750                                  ; Comprueba si "comparar" fue digitado y hace lo correspondiente si fue o no ingresado. |
+   751                                  ;----------------------------------------------------------------------------------------
+   752                                  ComprobarComparar:
+   753                                  	; Verifica las letras restantes para "comparar".
+   754 0000052F 803D[03000000]70        	cmp byte[buffer+3] , 'p'
+   755 00000536 0F853FFBFFFF            	jne ErrorComando
+   756 0000053C 803D[04000000]61        	cmp byte[buffer+4] , 'a'
+   757 00000543 0F8532FBFFFF            	jne ErrorComando
+   758 00000549 803D[05000000]72        	cmp byte[buffer+5] , 'r'
+   759 00000550 0F8525FBFFFF            	jne ErrorComando
+   760 00000556 803D[06000000]61        	cmp byte[buffer+6] , 'a'
+   761 0000055D 0F8518FBFFFF            	jne ErrorComando	
+   762 00000563 803D[07000000]72        	cmp byte[buffer+7] , 'r'
+   763 0000056A 0F850BFBFFFF            	jne ErrorComando	
+   764 00000570 803D[08000000]0A        	cmp byte[buffer+8] , 10
+   765 00000577 0F840D020000            	je PrimeraAyuda
+   766 0000057D 803D[08000000]20        	cmp byte[buffer+8] , ' '
+   767 00000584 0F85F1FAFFFF            	jne ErrorComando
+   768 0000058A 803D[09000000]2D        	cmp byte[buffer+9] , '-'
+   769 00000591 BB0A000000              	mov ebx,10
+   770 00000596 0F845B020000            	je ComprobarAyuda
+   771                                  	
+   772                                  	; Lee el nombre del archivo que se quiere renombrar.
+   773                                  	leerNombreArchivoCmp1:
+   774 0000059C B909000000              		mov ecx, 9
+   775 000005A1 31C0                    		xor eax,eax
+   776                                  		.ciclo:
+   777 000005A3 80B9[00000000]20        			cmp byte[buffer+ecx],' '
+   778 000005AA 740F                    			je leerNombreArchivoCmp2
+   779 000005AC 8A81[00000000]          			mov al,byte[buffer+ecx]
+   780 000005B2 8881[5B000000]          			mov byte[bufferNomArchivo + ecx - 9] , al
+   781 000005B8 41                      			inc ecx
+   782 000005B9 EBE8                    			jmp .ciclo
+   783                                  
+   784                                  	; Lee el nuevo nombre que se desea poner.
+   785                                  	leerNombreArchivoCmp2:
+   786 000005BB 41                      		inc	ecx
+   787 000005BC 89CB                    		mov ebx, ecx
+   788 000005BE 31C0                    		xor eax,eax
+   789                                  		.ciclo:
+   790 000005C0 80B9[00000000]0A        			cmp byte[buffer+ecx],10
+   791 000005C7 7413                    			je CompArchivos
+   792 000005C9 8A81[00000000]          			mov al,byte[buffer+ecx]
+   793 000005CF 51                      			push ecx
+   794 000005D0 29D9                    			sub ecx,ebx
+   795 000005D2 8881[96000000]          			mov byte[bufferNomArchivo2 + ecx] , al
+   796 000005D8 59                      			pop ecx
+   797 000005D9 41                      			inc ecx
+   798 000005DA EBE4                    			jmp .ciclo
+   799                                  		
+   800                                  
+   801                                  CompArchivos:
+   802                                  	.AbrirArchivo:
+   803 000005DC BB[64000000]            	mov	ebx, bufferNomArchivo
+   804 000005E1 B900000000              	mov	ecx, 0 ; Read only		
+   805 000005E6 B805000000              	mov	eax, sys_open
+   806 000005EB CD80                    	int	80h
+   807                                  		
+   808                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+   809                                  	.ChequeaError:
+   810 000005ED C705[16050000]0100-     		mov dword[numArchivo],1
+   811 000005F5 0000               
+   812 000005F7 85C0                    		test	eax, eax
+   813 000005F9 0F8876050000            		js	ErrorArchivo
+   814                                  
+   815                                  	; Sino ocurrio error, entonces se lee el archivo en un buffer.
+   816 000005FF 89C3                    	mov		ebx, eax
+   817 00000601 B9[C8000000]            	mov		ecx, bufferArchivo
+   818 00000606 BAB80B0000              	mov		edx, bufLenArchivo
+   819 0000060B B803000000              	mov		eax, sys_read		
+   820 00000610 CD80                    	int 	80h
+   821                                  	
+   822                                  	; Abre el archivo #2
+   823 00000612 BB[96000000]            	mov	ebx, bufferNomArchivo2
+   824 00000617 B900000000              	mov	ecx, 0 ; Read only		
+   825 0000061C B805000000              	mov	eax, sys_open
+   826 00000621 CD80                    	int	80h
+   827                                  		
+   828                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+   829                                  	.ChequeaError2:
+   830 00000623 C705[16050000]0000-     		mov dword[numArchivo],0
+   831 0000062B 0000               
+   832 0000062D 85C0                    		test	eax, eax
+   833 0000062F 0F8840050000            		js	ErrorArchivo
+   834                                  
+   835                                  	; Sino ocurrio error, entonces se lee el archivo en un buffer.
+   836 00000635 89C3                    	mov		ebx, eax
+   837 00000637 B9[800C0000]            	mov		ecx, bufferArchivo2
+   838 0000063C BAB80B0000              	mov		edx, bufLenArchivo2
+   839 00000641 B803000000              	mov		eax, sys_read		
+   840 00000646 CD80                    	int 	80h
+   841                                  	
+   842 00000648 C605[C7040000]01        	mov byte[contador],1
+   843 0000064F 31C9                    	xor ecx,ecx
+   844 00000651 31C0                    	xor eax,eax
+   845 00000653 31DB                    	xor ebx,ebx
+   846 00000655 31D2                    	xor edx,edx
+   847                                  
+   848                                  ;----------------------------------------------------------------------------		
+   849                                  ;	Ciclo principal en la etapa de comparar las lineas de los archivos  	|	
+   850                                  ;----------------------------------------------------------------------------
+   851                                  
+   852                                  	.comparar:
+   853 00000657 8A91[C8000000]          		mov dl,byte[bufferArchivo+ecx]
+   854 0000065D 8A98[800C0000]          		mov bl,byte[bufferArchivo2+eax]
+   855 00000663 80FA00                  		cmp dl,0
+   856 00000666 0F84BD000000            		je .termina1
+   857 0000066C 80FB00                  		cmp bl,0
+   858 0000066F 0F84D3000000            		je .termina2
+   859 00000675 38DA                    		cmp dl,bl
+   860 00000677 757A                    		jne .agregarMensajeLinea
+   861 00000679 80FB0A                  		cmp bl,10
+   862 0000067C 7409                    		je .continuaArchivo1
+   863 0000067E 80FA0A                  		cmp dl,10
+   864 00000681 741B                    		je .continuaArchivo2
+   865 00000683 38DA                    		cmp dl,bl
+   866 00000685 7454                    		je .continua
    867                                  
-   868                                  ;ciclo mueve el eax al proximo enter, siendo ecx el indice del buffer con
-   869                                  ;la informacion del archivo numero 2
-   870                                  ;recorriendo la linea hasta el final para continuar
+   868                                  ;ciclo mueve el ecx al proximo enter, siendo ecx el indice del buffer con
+   869                                  ;la informacion del archivo
+   870                                  ;recorriendo la linea hasta el final para IngresarComando
    871                                  ;al terminar binca a la parte donde se aumenta el contador de lineas
-   872                                  	.continuaArchivo2:
-   873 000006AA 8A98[08070000]          		mov bl,byte[bufferArchivo2+eax]
-   874 000006B0 83FB00                  		cmp ebx,0
-   875 000006B3 0F849B000000            		je .termina2
-   876 000006B9 83FB0A                  		cmp ebx,10
-   877 000006BC 7430                    		je .aumentarLinea
-   878 000006BE 40                      		inc eax
-   879 000006BF EBE9                    		jmp .continuaArchivo2
-   880                                  
-   881                                  ;Funciones auxiliares de la funcion agregar linea;
-   882                                  ;cuando se imprime en cual linea de los archivos hay diferencias,
-   883                                  ;entonces se recorren los dos archivos hasta el enter mas cercano
-   884                                  ;incrementando el eax y ecx que son los indices para moverse por 
-   885                                  ;los diferentes archivos
-   886                                  ;NOTA: Comentario para Auxiliar 2 tambien.
-   887                                  		
-   888                                  	.continuaArchivo1Aux:
-   889 000006C1 8A91[C8000000]          		mov dl,byte[bufferArchivo+ecx]
-   890 000006C7 80FA00                  		cmp dl,0
-   891 000006CA 7469                    		je .termina1
-   892 000006CC 80FA0A                  		cmp dl,10
-   893 000006CF 7403                    		je .continuaArchivo2Aux
-   894 000006D1 41                      		inc ecx
-   895 000006D2 EBED                    		jmp .continuaArchivo1Aux
-   896                                  	
-   897                                  	.continuaArchivo2Aux:
-   898 000006D4 8A98[08070000]          		mov bl,byte[bufferArchivo2+eax]
-   899 000006DA 80FB00                  		cmp bl,0
-   900 000006DD 7475                    		je .termina2
-   901 000006DF 80FB0A                  		cmp bl,10
-   902 000006E2 740A                    		je .aumentarLinea
-   903 000006E4 40                      		inc eax
-   904 000006E5 EBED                    		jmp .continuaArchivo2Aux
-   905                                  
-   906                                  ;Fucion que incrementa los indices de los archivos
-   907                                  ;se le delega este paso a una sola funcion ya que es necesario
-   908                                  ;utilizarla desde diferentes funciones dentro de la Funcionalidad del
-   909                                  ;comando comparar
-   910                                  ;Se retorna al ciclo principal para seguir comparando
-   911                                  
-   912                                  	.continua:
-   913 000006E7 41                      		inc ecx
-   914 000006E8 40                      		inc eax
-   915 000006E9 E975FFFFFF              		jmp .comparar
-   916                                  		
-   917                                  ;ciclo para aumentar el contador de lineas
-   918                                  ;Lleva la cuneta de la linea actual en proceso
-   919                                  ;se incrementa cada vez que los archivos juntos salten de linea
-   920                                  
-   921                                  	.aumentarLinea:
-   922 000006EE 31D2                    		xor edx,edx
-   923 000006F0 8B15[DE030000]          		mov edx,dword[contador]
-   924 000006F6 42                      		inc edx
-   925 000006F7 8915[DE030000]          		mov dword[contador],edx
-   926 000006FD EBE8                    		jmp .continua
-   927                                  
-   928                                  ;Etiqueta para agregar msj cuando los archivos son diferentes
-   929                                  ;si se ah puesto el msj lo pone y si ya esta puesto entonces continau
-   930                                  ;a agregar la linea donde se dio el cambio
-   931                                  		
-   932                                  	.agregarMensajeLinea:
-   933 000006FF 50                      		push eax
-   934 00000700 51                      		push ecx
-   935 00000701 A0[E4030000]            		mov al,byte[cantLineas]
-   936 00000706 3C01                    		cmp al,1
-   937 00000708 7411                    		je .agregarLinea
-   938                                  		
-   939 0000070A B9[80010000]            		mov ecx,archivoDiferenteTxt
-   940 0000070F BA2B000000              		mov edx,lenArchivoDiferente
-   941 00000714 E89A020000              		call DisplayText
-   942                                  		
-   943 00000719 EB00                    		jmp .agregarLinea
-   944                                  
-   945                                  ;se muestra en pantalla la linea donde se genero el cambio entre los archivos
-   946                                  		
-   947                                  	.agregarLinea:
-   948 0000071B C605[E4030000]01        		mov byte[cantLineas],1
-   949 00000722 A1[DE030000]            		mov eax,dword[contador]
-   950 00000727 E8BC020000              		call Int_to_ascii
-   951 0000072C E882020000              		call DisplayText
-   952 00000731 59                      		pop ecx
-   953 00000732 58                      		pop eax
-   954 00000733 EB8C                    		jmp .continuaArchivo1Aux
-   955                                  		
-   956                                  	.termina1:
-   957 00000735 A0[E4030000]            		mov al,byte[cantLineas]
-   958 0000073A 3C01                    		cmp al,1
-   959 0000073C 7424                    		je .msjArchivo2
-   960 0000073E 80FB00                  		cmp bl,0
-   961 00000741 7430                    		je .finIgual
-   962                                  	
-   963                                  	.msjArchivo1:
-   964 00000743 B9[E5010000]            		mov ecx,archivo2Txt
-   965 00000748 BA3A000000              		mov edx,lenArchivo2Txt
-   966 0000074D E861020000              		call DisplayText
-   967 00000752 EB38                    		jmp .fin
-   968                                  		
-   969                                  	.termina2:
-   970 00000754 A0[E4030000]            		mov al,byte[cantLineas]
-   971 00000759 3C01                    		cmp al,1
-   972 0000075B 74E6                    		je .msjArchivo1
-   973 0000075D 80FA00                  		cmp dl,0
-   974 00000760 7411                    		je .finIgual
-   975                                  	
-   976                                  	.msjArchivo2:
-   977 00000762 B9[AB010000]            		mov ecx,archivo1Txt
-   978 00000767 BA3A000000              		mov edx,lenArchivo1Txt
-   979 0000076C E842020000              		call DisplayText
-   980                                  		
-   981 00000771 EB19                    		jmp .fin
+   872                                  			
+   873                                  	.continuaArchivo1:
+   874 00000687 8A91[C8000000]          		mov dl,byte[bufferArchivo+ecx]
+   875 0000068D 83FA00                  		cmp edx,0
+   876 00000690 0F8493000000            		je .termina1
+   877 00000696 83FA0A                  		cmp edx,10
+   878 00000699 7447                    		je .aumentarLinea
+   879 0000069B 41                      		inc ecx
+   880 0000069C EBE9                    		jmp .continuaArchivo1
+   881                                  
+   882                                  ;ciclo mueve el eax al proximo enter, siendo ecx el indice del buffer con
+   883                                  ;la informacion del archivo numero 2
+   884                                  ;recorriendo la linea hasta el final para IngresarComando
+   885                                  ;al terminar binca a la parte donde se aumenta el contador de lineas
+   886                                  	.continuaArchivo2:
+   887 0000069E 8A98[800C0000]          		mov bl,byte[bufferArchivo2+eax]
+   888 000006A4 83FB00                  		cmp ebx,0
+   889 000006A7 0F849B000000            		je .termina2
+   890 000006AD 83FB0A                  		cmp ebx,10
+   891 000006B0 7430                    		je .aumentarLinea
+   892 000006B2 40                      		inc eax
+   893 000006B3 EBE9                    		jmp .continuaArchivo2
+   894                                  
+   895                                  ;Funciones auxiliares de la funcion agregar linea;
+   896                                  ;cuando se imprime en cual linea de los archivos hay diferencias,
+   897                                  ;entonces se recorren los dos archivos hasta el enter mas cercano
+   898                                  ;incrementando el eax y ecx que son los indices para moverse por 
+   899                                  ;los diferentes archivos
+   900                                  ;NOTA: Comentario para Auxiliar 2 tambien.
+   901                                  		
+   902                                  	.continuaArchivo1Aux:
+   903 000006B5 8A91[C8000000]          		mov dl,byte[bufferArchivo+ecx]
+   904 000006BB 80FA00                  		cmp dl,0
+   905 000006BE 7469                    		je .termina1
+   906 000006C0 80FA0A                  		cmp dl,10
+   907 000006C3 7403                    		je .continuaArchivo2Aux
+   908 000006C5 41                      		inc ecx
+   909 000006C6 EBED                    		jmp .continuaArchivo1Aux
+   910                                  	
+   911                                  	.continuaArchivo2Aux:
+   912 000006C8 8A98[800C0000]          		mov bl,byte[bufferArchivo2+eax]
+   913 000006CE 80FB00                  		cmp bl,0
+   914 000006D1 7475                    		je .termina2
+   915 000006D3 80FB0A                  		cmp bl,10
+   916 000006D6 740A                    		je .aumentarLinea
+   917 000006D8 40                      		inc eax
+   918 000006D9 EBED                    		jmp .continuaArchivo2Aux
+   919                                  
+   920                                  ;Fucion que incrementa los indices de los archivos
+   921                                  ;se le delega este paso a una sola funcion ya que es necesario
+   922                                  ;utilizarla desde diferentes funciones dentro de la Funcionalidad del
+   923                                  ;comando comparar
+   924                                  ;Se retorna al ciclo principal para seguir comparando
+   925                                  
+   926                                  	.continua:
+   927 000006DB 41                      		inc ecx
+   928 000006DC 40                      		inc eax
+   929 000006DD E975FFFFFF              		jmp .comparar
+   930                                  		
+   931                                  ;ciclo para aumentar el contador de lineas
+   932                                  ;Lleva la cuneta de la linea actual en proceso
+   933                                  ;se incrementa cada vez que los archivos juntos salten de linea
+   934                                  
+   935                                  	.aumentarLinea:
+   936 000006E2 31D2                    		xor edx,edx
+   937 000006E4 8B15[C7040000]          		mov edx,dword[contador]
+   938 000006EA 42                      		inc edx
+   939 000006EB 8915[C7040000]          		mov dword[contador],edx
+   940 000006F1 EBE8                    		jmp .continua
+   941                                  
+   942                                  ;Etiqueta para agregar msj cuando los archivos son diferentes
+   943                                  ;si se ah puesto el msj lo pone y si ya esta puesto entonces continau
+   944                                  ;a agregar la linea donde se dio el cambio
+   945                                  		
+   946                                  	.agregarMensajeLinea:
+   947 000006F3 50                      		push eax
+   948 000006F4 51                      		push ecx
+   949 000006F5 A0[CD040000]            		mov al,byte[cantLineas]
+   950 000006FA 3C01                    		cmp al,1
+   951 000006FC 7411                    		je .agregarLinea
+   952                                  		
+   953 000006FE B9[86010000]            		mov ecx,archivoDiferenteTxt
+   954 00000703 BA2B000000              		mov edx,lenArchivoDiferente
+   955 00000708 E88E040000              		call DisplayText
+   956                                  		
+   957 0000070D EB00                    		jmp .agregarLinea
+   958                                  
+   959                                  ;se muestra en pantalla la linea donde se genero el cambio entre los archivos
+   960                                  		
+   961                                  	.agregarLinea:
+   962 0000070F C605[CD040000]01        		mov byte[cantLineas],1
+   963 00000716 A1[C7040000]            		mov eax,dword[contador]
+   964 0000071B E8B0040000              		call Int_to_ascii
+   965 00000720 E876040000              		call DisplayText
+   966 00000725 59                      		pop ecx
+   967 00000726 58                      		pop eax
+   968 00000727 EB8C                    		jmp .continuaArchivo1Aux
+   969                                  		
+   970                                  	.termina1:
+   971 00000729 A0[CD040000]            		mov al,byte[cantLineas]
+   972 0000072E 3C01                    		cmp al,1
+   973 00000730 7424                    		je .msjArchivo2
+   974 00000732 80FB00                  		cmp bl,0
+   975 00000735 7430                    		je .finIgual
+   976                                  	
+   977                                  	.msjArchivo1:
+   978 00000737 B9[EC010000]            		mov ecx,archivo2Txt
+   979 0000073C BA3B000000              		mov edx,lenArchivo2Txt
+   980 00000741 E855040000              		call DisplayText
+   981 00000746 EB38                    		jmp .fin
    982                                  		
-   983                                  	.finIgual:		
-   984 00000773 BA26000000              		mov edx,lenArchivoIguales
-   985 00000778 B9[5A010000]            		mov ecx,archivoIgualesTxt
-   986 0000077D E831020000              		call DisplayText
-   987 00000782 E839020000              		call ReadText
-   988 00000787 E94FF9FFFF              		jmp Continuar
+   983                                  	.termina2:
+   984 00000748 A0[CD040000]            		mov al,byte[cantLineas]
+   985 0000074D 3C01                    		cmp al,1
+   986 0000074F 74E6                    		je .msjArchivo1
+   987 00000751 80FA00                  		cmp dl,0
+   988 00000754 7411                    		je .finIgual
    989                                  	
-   990                                  	.fin:
-   991 0000078C E82F020000              		call ReadText
-   992 00000791 E96BF8FFFF              		jmp IngresarComando
-   993                                  	
-   994                                  ;-----------------------------------------------------
-   995                                  ; Verifica cual texto de primera ayuda debe mostrar. |
-   996                                  ;-----------------------------------------------------
-   997                                  PrimeraAyuda:
-   998 00000796 803D[00000000]6D        	cmp byte[buffer] , 'm'
-   999 0000079D 7427                    	je PriAyudaMostrar
-  1000 0000079F 803D[00000000]62        	cmp byte[buffer] , 'b'
-  1001 000007A6 742A                    	je PriAyudaBorrar
-  1002 000007A8 803D[00000000]72        	cmp byte[buffer] , 'r'
-  1003 000007AF 7439                    	je PriAyudaRenombrar
-  1004 000007B1 803D[02000000]70        	cmp byte[buffer+2] , 'p'
-  1005 000007B8 7424                    	je PriAyudaCopiar
-  1006                                  	
-  1007                                  	PriAyudaComparar:
-  1008 000007BA B9[CB020000]            		mov ecx, compararFhTxt
-  1009 000007BF BA5D000000              		mov edx, compararFhLen
-  1010 000007C4 EB2E                    		jmp ImprimeFh
-  1011                                  	
-  1012                                  	PriAyudaMostrar:
-  1013 000007C6 B9[74020000]            		mov ecx, mostrarFhTxt
-  1014 000007CB BA57000000              		mov edx, mostrarFhLen
-  1015 000007D0 EB22                    		jmp ImprimeFh
-  1016                                  	
-  1017                                  	PriAyudaBorrar:
-  1018 000007D2 B9[1F020000]            		mov ecx, borrarFhTxt
-  1019 000007D7 BA55000000              		mov edx, borrarFhLen
-  1020 000007DC EB16                    		jmp ImprimeFh
-  1021                                  	 
-  1022                                  	PriAyudaCopiar:
-  1023 000007DE B9[85030000]            		mov ecx, copiarFhTxt
-  1024 000007E3 BA59000000              		mov edx, copiarFhLen
-  1025 000007E8 EB0A                    		jmp ImprimeFh
-  1026                                  	
-  1027                                  	PriAyudaRenombrar:
-  1028 000007EA B9[28030000]            		mov ecx, renombrarFhTxt
-  1029 000007EF BA5D000000              		mov edx, renombrarFhLen
-  1030                                  
-  1031                                  	ImprimeFh:
-  1032                                  	; Se imprime en pantalla el texto de primer ayuda.
-  1033 000007F4 E8BA010000              	call DisplayText
-  1034                                  	
-  1035                                  	; Espera por un ENTER
-  1036 000007F9 E88C010000              	call LeerComando
-  1037 000007FE E9D8F8FFFF              	jmp Continuar
-  1038                                  
-  1039                                  
-  1040                                  ;----------------------------------------------
-  1041                                  ; Verifica las letras restantes para "ayuda". |
-  1042                                  ;----------------------------------------------
-  1043                                  ComprobarAyuda:
-  1044 00000803 80BB[00000000]2D        	cmp byte[buffer+ebx] , '-'
-  1045 0000080A 0F85DDF8FFFF            	jne ErrorComando
-  1046 00000810 43                      	inc ebx
-  1047 00000811 80BB[00000000]61        	cmp byte[buffer+ebx] , 'a'
-  1048 00000818 0F85CFF8FFFF            	jne ErrorComando
-  1049 0000081E 43                      	inc ebx
-  1050 0000081F 80BB[00000000]79        	cmp byte[buffer+ebx] , 'y'
-  1051 00000826 0F85C1F8FFFF            	jne ErrorComando
-  1052 0000082C 43                      	inc ebx
-  1053 0000082D 80BB[00000000]75        	cmp byte[buffer+ebx] , 'u'
-  1054 00000834 0F85B3F8FFFF            	jne ErrorComando	
-  1055 0000083A 43                      	inc ebx
-  1056 0000083B 80BB[00000000]64        	cmp byte[buffer+ebx] , 'd'
-  1057 00000842 0F85A5F8FFFF            	jne ErrorComando	
-  1058 00000848 43                      	inc ebx
-  1059 00000849 80BB[00000000]61        	cmp byte[buffer+ebx] , 'a'
-  1060 00000850 0F8597F8FFFF            	jne ErrorComando	
-  1061                                  
-  1062                                  ;--------------------------------------------
-  1063                                  ; Abre el archivo correspondiente de ayuda  |
-  1064                                  ; segun el comando ingresado.               |
-  1065                                  ;--------------------------------------------
-  1066                                  Ayudas:
-  1067 00000856 803D[00000000]6D        	cmp byte[buffer] , 'm'
-  1068 0000085D 742E                    	je ayudaMostrar
-  1069 0000085F 803D[00000000]62        	cmp byte[buffer] , 'b'
-  1070 00000866 7438                    	je ayudaBorrar
-  1071 00000868 803D[00000000]72        	cmp byte[buffer] , 'r'
-  1072 0000086F 7442                    	je ayudaRenombrar
-  1073 00000871 803D[02000000]70        	cmp byte[buffer+2] , 'p'
-  1074 00000878 744C                    	je ayudaCopiar
+   990                                  	.msjArchivo2:
+   991 00000756 B9[B1010000]            		mov ecx,archivo1Txt
+   992 0000075B BA3B000000              		mov edx,lenArchivo1Txt
+   993 00000760 E836040000              		call DisplayText
+   994                                  		
+   995 00000765 EB19                    		jmp .fin
+   996                                  		
+   997                                  	.finIgual:		
+   998 00000767 BA26000000              		mov edx,lenArchivoIguales
+   999 0000076C B9[60010000]            		mov ecx,archivoIgualesTxt
+  1000 00000771 E825040000              		call DisplayText
+  1001 00000776 E82D040000              		call ReadText
+  1002 0000077B E981F8FFFF              		jmp IngresarComando
+  1003                                  	
+  1004                                  	.fin:
+  1005 00000780 E823040000              		call ReadText
+  1006 00000785 E977F8FFFF              		jmp IngresarComando
+  1007                                  	
+  1008                                  ;-----------------------------------------------------
+  1009                                  ; Verifica cual texto de primera ayuda debe mostrar. |
+  1010                                  ;-----------------------------------------------------
+  1011                                  PrimeraAyuda:
+  1012 0000078A 803D[00000000]6D        	cmp byte[buffer] , 'm'
+  1013 00000791 7427                    	je PriAyudaMostrar
+  1014 00000793 803D[00000000]62        	cmp byte[buffer] , 'b'
+  1015 0000079A 742A                    	je PriAyudaBorrar
+  1016 0000079C 803D[00000000]72        	cmp byte[buffer] , 'r'
+  1017 000007A3 7439                    	je PriAyudaRenombrar
+  1018 000007A5 803D[02000000]70        	cmp byte[buffer+2] , 'p'
+  1019 000007AC 7424                    	je PriAyudaCopiar
+  1020                                  	
+  1021                                  	PriAyudaComparar:
+  1022 000007AE B9[09030000]            		mov ecx, compararFhTxt
+  1023 000007B3 BA78000000              		mov edx, compararFhLen
+  1024 000007B8 EB2E                    		jmp ImprimeFh
+  1025                                  	
+  1026                                  	PriAyudaMostrar:
+  1027 000007BA B9[97020000]            		mov ecx, mostrarFhTxt
+  1028 000007BF BA72000000              		mov edx, mostrarFhLen
+  1029 000007C4 EB22                    		jmp ImprimeFh
+  1030                                  	
+  1031                                  	PriAyudaBorrar:
+  1032 000007C6 B9[27020000]            		mov ecx, borrarFhTxt
+  1033 000007CB BA70000000              		mov edx, borrarFhLen
+  1034 000007D0 EB16                    		jmp ImprimeFh
+  1035                                  	 
+  1036                                  	PriAyudaCopiar:
+  1037 000007D2 B9[F9030000]            		mov ecx, copiarFhTxt
+  1038 000007D7 BA74000000              		mov edx, copiarFhLen
+  1039 000007DC EB0A                    		jmp ImprimeFh
+  1040                                  	
+  1041                                  	PriAyudaRenombrar:
+  1042 000007DE B9[81030000]            		mov ecx, renombrarFhTxt
+  1043 000007E3 BA78000000              		mov edx, renombrarFhLen
+  1044                                  
+  1045                                  	ImprimeFh:
+  1046                                  	; Se imprime en pantalla el texto de primer ayuda.
+  1047 000007E8 E8AE030000              	call DisplayText
+  1048                                  	
+  1049                                  	; Espera por un ENTER
+  1050 000007ED E873030000              	call LeerComando
+  1051 000007F2 E90AF8FFFF              	jmp IngresarComando
+  1052                                  
+  1053                                  
+  1054                                  ;----------------------------------------------
+  1055                                  ; Verifica las letras restantes para "ayuda". |
+  1056                                  ;----------------------------------------------
+  1057                                  ComprobarAyuda:
+  1058 000007F7 80BB[00000000]2D        	cmp byte[buffer+ebx] , '-'
+  1059 000007FE 0F8577F8FFFF            	jne ErrorComando
+  1060 00000804 43                      	inc ebx
+  1061 00000805 80BB[00000000]61        	cmp byte[buffer+ebx] , 'a'
+  1062 0000080C 0F8569F8FFFF            	jne ErrorComando
+  1063 00000812 43                      	inc ebx
+  1064 00000813 80BB[00000000]79        	cmp byte[buffer+ebx] , 'y'
+  1065 0000081A 0F855BF8FFFF            	jne ErrorComando
+  1066 00000820 43                      	inc ebx
+  1067 00000821 80BB[00000000]75        	cmp byte[buffer+ebx] , 'u'
+  1068 00000828 0F854DF8FFFF            	jne ErrorComando	
+  1069 0000082E 43                      	inc ebx
+  1070 0000082F 80BB[00000000]64        	cmp byte[buffer+ebx] , 'd'
+  1071 00000836 0F853FF8FFFF            	jne ErrorComando	
+  1072 0000083C 43                      	inc ebx
+  1073 0000083D 80BB[00000000]61        	cmp byte[buffer+ebx] , 'a'
+  1074 00000844 0F8531F8FFFF            	jne ErrorComando	
   1075                                  
-  1076                                  	ayudaComparar:
-  1077                                  		; Abre el archivo donde esta la ayuda de comparar.
-  1078 0000087A BB[78040000]            		mov	ebx, ayudaCompararTxt
-  1079 0000087F B900000000              		mov	ecx, 0 ; Read only		
-  1080 00000884 B805000000              		mov	eax, sys_open
-  1081 00000889 CD80                    		int	80h	
-  1082 0000088B EB4A                    		jmp _chequeaError
-  1083                                  
-  1084                                  	ayudaMostrar:
-  1085                                  		; Abre el archivo donde esta la ayuda de mostrar.
-  1086 0000088D BB[28040000]            		mov	ebx, ayudaMostrarTxt
-  1087 00000892 B900000000              		mov	ecx, 0 ; Read only		
-  1088 00000897 B805000000              		mov	eax, sys_open
-  1089 0000089C CD80                    		int	80h
-  1090 0000089E EB37                    		jmp _chequeaError
-  1091                                  
-  1092                                  	ayudaBorrar:
-  1093                                  		; Abre el archivo donde esta la ayuda de borrar.
-  1094 000008A0 BB[3C040000]            		mov	ebx, ayudaBorrarTxt
-  1095 000008A5 B900000000              		mov	ecx, 0 ; Read only		
-  1096 000008AA B805000000              		mov	eax, sys_open
-  1097 000008AF CD80                    		int	80h
-  1098 000008B1 EB24                    		jmp _chequeaError
-  1099                                  
-  1100                                  	ayudaRenombrar:
-  1101                                  		; Abre el archivo donde esta la ayuda de renombrar.
-  1102 000008B3 BB[4F040000]            		mov	ebx, ayudaRenombrarTxt
-  1103 000008B8 B900000000              		mov	ecx, 0 ; Read only		
-  1104 000008BD B805000000              		mov	eax, sys_open
-  1105 000008C2 CD80                    		int	80h
-  1106 000008C4 EB11                    		jmp _chequeaError
-  1107                                  		
-  1108                                  	ayudaCopiar:
-  1109                                  		; Abre el archivo donde esta la ayuda de copiar.
-  1110 000008C6 BB[65040000]            		mov	ebx, ayudaCopiarTxt
-  1111 000008CB B900000000              		mov	ecx, 0 ; Read only		
-  1112 000008D0 B805000000              		mov	eax, sys_open
-  1113 000008D5 CD80                    		int	80h
-  1114                                  	
-  1115                                  			
-  1116                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo.
-  1117                                  	_chequeaError:
-  1118 000008D7 85C0                    		test	eax, eax
-  1119 000008D9 0F88BB000000            		js	ErrorArchivo
-  1120                                  
-  1121                                  	; Sino ocurrio error, entonces se lee el archivo en un buffer.
-  1122 000008DF 89C3                    	mov		ebx, eax
-  1123 000008E1 B9[C8000000]            	mov		ecx, bufferArchivo
-  1124 000008E6 BA40060000              	mov		edx, bufLenArchivo
-  1125 000008EB B803000000              	mov		eax, sys_read		
-  1126 000008F0 CD80                    	int 	80h
-  1127                                  	
-  1128                                  	; Se imprime en pantalla el archivo de ayuda.
-  1129 000008F2 B9[C8000000]            	mov ecx,bufferArchivo
-  1130 000008F7 BA40060000              	mov edx,bufLenArchivo
-  1131 000008FC E8B2000000              	call DisplayText
-  1132                                  		
-  1133                                  	
-  1134                                  	; Espera por un ENTER
-  1135 00000901 E884000000              	call LeerComando
-  1136 00000906 E9D0F7FFFF              	jmp Continuar
-  1137                                  
-  1138                                  ;-------------------------------------------------------------------------
-  1139                                  ; Comprueba si el argumento "--forzado" fue digitado de manera correcta. |
-  1140                                  ;-------------------------------------------------------------------------
-  1141                                  ComprobarForzado:
-  1142 0000090B 41                      	inc ecx
-  1143 0000090C 80B9[00000000]2D        	cmp byte[buffer+ecx],'-'
-  1144 00000913 0F853DFFFFFF            	jne Ayudas
-  1145 00000919 41                      	inc ecx
-  1146 0000091A 80B9[00000000]2D        	cmp byte[buffer+ecx],'-'
-  1147 00000921 0F852FFFFFFF            	jne Ayudas
-  1148 00000927 41                      	inc ecx
-  1149 00000928 80B9[00000000]66        	cmp byte[buffer+ecx],'f'
-  1150 0000092F 0F8521FFFFFF            	jne Ayudas
-  1151 00000935 41                      	inc ecx
-  1152 00000936 80B9[00000000]6F        	cmp byte[buffer+ecx],'o'
-  1153 0000093D 0F8513FFFFFF            	jne Ayudas
-  1154 00000943 41                      	inc ecx
-  1155 00000944 80B9[00000000]72        	cmp byte[buffer+ecx],'r'
-  1156 0000094B 0F8505FFFFFF            	jne Ayudas
-  1157 00000951 41                      	inc ecx
-  1158 00000952 80B9[00000000]7A        	cmp byte[buffer+ecx],'z'
-  1159 00000959 0F85F7FEFFFF            	jne Ayudas
-  1160 0000095F 41                      	inc ecx
-  1161 00000960 80B9[00000000]61        	cmp byte[buffer+ecx],'a'
-  1162 00000967 0F85E9FEFFFF            	jne Ayudas
-  1163 0000096D 41                      	inc ecx
-  1164 0000096E 80B9[00000000]64        	cmp byte[buffer+ecx],'d'
-  1165 00000975 0F85DBFEFFFF            	jne Ayudas
-  1166 0000097B 41                      	inc ecx
-  1167 0000097C 80B9[00000000]6F        	cmp byte[buffer+ecx],'o'
-  1168 00000983 0F85CDFEFFFF            	jne Ayudas
-  1169 00000989 C3                      	ret
-  1170                                  
-  1171                                  
-  1172                                  
-  1173                                  	
-  1174                                  ;**********************************************************************************************************************
-  1175                                  ; 												-> RUTINAS INTERMEDIAS <-                                             *
-  1176                                  ;**********************************************************************************************************************
-  1177                                  
-  1178                                  ;-------------------------------------
-  1179                                  ; Lee el comando digitado en buffer  |
-  1180                                  ;-------------------------------------	
-  1181                                  LeerComando:
-  1182 0000098A B9[00000000]            	mov ecx, buffer
-  1183 0000098F BA64000000              	mov edx, bufLen
-  1184 00000994 E827000000              	call ReadText
-  1185 00000999 C3                      	ret
-  1186                                  
-  1187                                  ;---------------------------------------------------------------------------
-  1188                                  ; Desplega un mensaje de error notificando que no se pudo abrir el archivo |
-  1189                                  ; y vuelve al prompt.                                                      |
-  1190                                  ;---------------------------------------------------------------------------
-  1191                                  ErrorArchivo:
-  1192 0000099A B9[28000000]            	mov     ecx, errorArchivoTexto
-  1193 0000099F BA2A000000              	mov		edx, errorArchivoLen
-  1194 000009A4 E80A000000                  call    DisplayText
-  1195 000009A9 E8DCFFFFFF                  call LeerComando ; Simula la espera por el presionado de enter.
-  1196 000009AE E928F7FFFF              	jmp Continuar	
-  1197                                  	
-  1198                                  ;--------------------------------------------------------------------
-  1199                                  ; Desplega algo en la salida estándar. debe "setearse" lo siguiente:|
-  1200                                  ; ecx: el puntero al mensaje a desplegar.                           |
-  1201                                  ; edx: el largo del mensaje a desplegar.                            |
-  1202                                  ; Modifica los registros eax y ebx.                                 |
-  1203                                  ;--------------------------------------------------------------------
-  1204                                  DisplayText:
-  1205 000009B3 B804000000              	mov eax,sys_write
-  1206 000009B8 BB01000000              	mov ebx,stdout
-  1207 000009BD CD80                    	int 80h
-  1208 000009BF C3                      	ret
-  1209                                  	
-  1210                                  ;-----------------------------------------------------------------
-  1211                                  ; Lee algo de la entrada estándar.debe "setearse" lo siguiente:  |
-  1212                                  ; ecx: el puntero al buffer donde se almacenará.                 |
-  1213                                  ; edx: el largo del mensaje a leer.	                             |
-  1214                                  ;-----------------------------------------------------------------
-  1215                                  ReadText:
-  1216 000009C0 B803000000              	mov eax,sys_read
-  1217 000009C5 BB00000000              	mov ebx,stdin
-  1218 000009CA CD80                    	int 80h
-  1219 000009CC C3                      	ret
-  1220                                  
-  1221                                  ;----------------------------------------------------
-  1222                                  ; Realiza los movimientos de los valores necesarios |
-  1223                                  ; para finalizar la ejecucion del programa.         |
-  1224                                  ;----------------------------------------------------
-  1225                                  Fin:
-  1226                                  	; Muestra en consola un mensaje de salida.
-  1227 000009CD B9[09000000]            	mov ecx,despedidaTxt
-  1228 000009D2 BA1F000000              	mov edx,len3
-  1229 000009D7 E8D7FFFFFF              	call DisplayText
-  1230                                  	
-  1231 000009DC B801000000              	mov eax,sys_exit
-  1232 000009E1 BB00000000              	mov ebx,0
-  1233 000009E6 CD80                    	int 80h
-  1234                                  	
-  1235                                  Int_to_ascii:					;se mueve el resultado de la suma a numero3
-  1236 000009E8 C705[E8030000]0000-     	mov dword[resultado],0
-  1237 000009F0 0000               
-  1238                                  	.divisiones_sucesivas:
-  1239                                  
-  1240 000009F2 31D2                    		xor	edx,edx				;limpia el registro;Trae el valor de la direccion de memoria seleccionada[]
-  1241 000009F4 B90A000000              		mov ecx,10				
-  1242 000009F9 6631DB                  		xor	bx,bx				;limpiar registro para usalrlo como contador de digitos de 16bits
-  1243                                  
-  1244                                  	.division:
-  1245 000009FC 31D2                    		xor	edx,edx 			;limpia el registro edx
-  1246 000009FE F7F1                    		div	ecx					
-  1247 00000A00 6652                    		push 	dx				;se hace push a dx
-  1248 00000A02 6643                    		inc 	bx				;se incrementa bx
-  1249 00000A04 85C0                    		test 	eax, eax		;test utiliza un AND para hacer la verificacion
-  1250 00000A06 75F4                    		jnz	.division			;si no es cero repite el proceso
-  1251                                  
-  1252                                  	.acomoda_digitos:
-  1253 00000A08 BA[E8030000]            		mov 	edx,resultado		
-  1254 00000A0D 6689D9                  		mov 	cx,bx
-  1255                                  
-  1256                                  	.siguente_digito:
-  1257 00000A10 6658                    		pop ax					;recibe los digitos de la fucion division para realizar la suma
-  1258 00000A12 0C30                    		or al,30h				;se suma 48, numero para convertir de int a ascii
-  1259 00000A14 8802                    		mov [edx],byte al		;utiliza edx para modificar los valores 
-  1260 00000A16 42                      		inc edx						
-  1261 00000A17 E2F7                    		loop .siguente_digito	
-  1262                                  	
-  1263                                  	.agrega_cambiodelinea:
-  1264 00000A19 C6020A                  	mov [edx],byte 0ah
-  1265                                  
-  1266                                  	.imprime_numero:			;toma el resultado y utiliza el edx como valor para imprmir en pantalla
-  1267 00000A1C 6653                    		push bx				
-  1268 00000A1E B9[E8030000]            		mov	ecx,resultado
-  1269 00000A23 31D2                    		xor	edx,edx
-  1270 00000A25 665A                    		pop	dx
-  1271 00000A27 6642                    		inc	dx
-  1272 00000A29 6642                    		inc	dx
-  1273 00000A2B C3                      	ret
-  1274                                  	
+  1076                                  ;--------------------------------------------
+  1077                                  ; Abre el archivo correspondiente de ayuda  |
+  1078                                  ; segun el comando ingresado.               |
+  1079                                  ;--------------------------------------------
+  1080                                  Ayudas:
+  1081 0000084A 803D[00000000]6D        	cmp byte[buffer] , 'm'
+  1082 00000851 742E                    	je ayudaMostrar
+  1083 00000853 803D[00000000]62        	cmp byte[buffer] , 'b'
+  1084 0000085A 7438                    	je ayudaBorrar
+  1085 0000085C 803D[00000000]72        	cmp byte[buffer] , 'r'
+  1086 00000863 7442                    	je ayudaRenombrar
+  1087 00000865 803D[02000000]70        	cmp byte[buffer+2] , 'p'
+  1088 0000086C 744C                    	je ayudaCopiar
+  1089                                  
+  1090                                  	ayudaComparar:
+  1091                                  		; Abre el archivo donde esta la ayuda de comparar.
+  1092 0000086E BB[67050000]            		mov	ebx, ayudaCompararTxt
+  1093 00000873 B900000000              		mov	ecx, 0 ; Read only		
+  1094 00000878 B805000000              		mov	eax, sys_open
+  1095 0000087D CD80                    		int	80h	
+  1096 0000087F EB4A                    		jmp _chequeaError
+  1097                                  
+  1098                                  	ayudaMostrar:
+  1099                                  		; Abre el archivo donde esta la ayuda de mostrar.
+  1100 00000881 BB[17050000]            		mov	ebx, ayudaMostrarTxt
+  1101 00000886 B900000000              		mov	ecx, 0 ; Read only		
+  1102 0000088B B805000000              		mov	eax, sys_open
+  1103 00000890 CD80                    		int	80h
+  1104 00000892 EB37                    		jmp _chequeaError
+  1105                                  
+  1106                                  	ayudaBorrar:
+  1107                                  		; Abre el archivo donde esta la ayuda de borrar.
+  1108 00000894 BB[2B050000]            		mov	ebx, ayudaBorrarTxt
+  1109 00000899 B900000000              		mov	ecx, 0 ; Read only		
+  1110 0000089E B805000000              		mov	eax, sys_open
+  1111 000008A3 CD80                    		int	80h
+  1112 000008A5 EB24                    		jmp _chequeaError
+  1113                                  
+  1114                                  	ayudaRenombrar:
+  1115                                  		; Abre el archivo donde esta la ayuda de renombrar.
+  1116 000008A7 BB[3E050000]            		mov	ebx, ayudaRenombrarTxt
+  1117 000008AC B900000000              		mov	ecx, 0 ; Read only		
+  1118 000008B1 B805000000              		mov	eax, sys_open
+  1119 000008B6 CD80                    		int	80h
+  1120 000008B8 EB11                    		jmp _chequeaError
+  1121                                  		
+  1122                                  	ayudaCopiar:
+  1123                                  		; Abre el archivo donde esta la ayuda de copiar.
+  1124 000008BA BB[54050000]            		mov	ebx, ayudaCopiarTxt
+  1125 000008BF B900000000              		mov	ecx, 0 ; Read only		
+  1126 000008C4 B805000000              		mov	eax, sys_open
+  1127 000008C9 CD80                    		int	80h
+  1128                                  	
+  1129                                  			
+  1130                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo.
+  1131                                  	_chequeaError:
+  1132 000008CB 85C0                    		test	eax, eax
+  1133 000008CD 0F88A2020000            		js	ErrorArchivo
+  1134                                  
+  1135                                  	; Sino ocurrio error, entonces se lee el archivo en un buffer.
+  1136 000008D3 89C3                    	mov		ebx, eax
+  1137 000008D5 B9[C8000000]            	mov		ecx, bufferArchivo
+  1138 000008DA BAB80B0000              	mov		edx, bufLenArchivo
+  1139 000008DF B803000000              	mov		eax, sys_read		
+  1140 000008E4 CD80                    	int 	80h
+  1141                                  	
+  1142                                  	; Se imprime en pantalla el archivo de ayuda.
+  1143 000008E6 B9[C8000000]            	mov ecx,bufferArchivo
+  1144 000008EB BAB80B0000              	mov edx,bufLenArchivo
+  1145 000008F0 E8A6020000              	call DisplayText
+  1146                                  		
+  1147                                  	
+  1148                                  	; Espera por un ENTER
+  1149 000008F5 E86B020000              	call LeerComando
+  1150 000008FA E902F7FFFF              	jmp IngresarComando
+  1151                                  
+  1152                                  ;-------------------------------------------------------------------------
+  1153                                  ; Comprueba si el argumento "--forzado" fue digitado de manera correcta. |
+  1154                                  ;-------------------------------------------------------------------------
+  1155                                  ComprobarForzado:
+  1156 000008FF 41                      	inc ecx
+  1157 00000900 80B9[00000000]2D        	cmp byte[buffer+ecx],'-'
+  1158 00000907 0F853DFFFFFF            	jne Ayudas
+  1159 0000090D 41                      	inc ecx
+  1160 0000090E 80B9[00000000]2D        	cmp byte[buffer+ecx],'-'
+  1161 00000915 0F852FFFFFFF            	jne Ayudas
+  1162 0000091B 41                      	inc ecx
+  1163 0000091C 80B9[00000000]66        	cmp byte[buffer+ecx],'f'
+  1164 00000923 0F8521FFFFFF            	jne Ayudas
+  1165 00000929 41                      	inc ecx
+  1166 0000092A 80B9[00000000]6F        	cmp byte[buffer+ecx],'o'
+  1167 00000931 0F8513FFFFFF            	jne Ayudas
+  1168 00000937 41                      	inc ecx
+  1169 00000938 80B9[00000000]72        	cmp byte[buffer+ecx],'r'
+  1170 0000093F 0F8505FFFFFF            	jne Ayudas
+  1171 00000945 41                      	inc ecx
+  1172 00000946 80B9[00000000]7A        	cmp byte[buffer+ecx],'z'
+  1173 0000094D 0F85F7FEFFFF            	jne Ayudas
+  1174 00000953 41                      	inc ecx
+  1175 00000954 80B9[00000000]61        	cmp byte[buffer+ecx],'a'
+  1176 0000095B 0F85E9FEFFFF            	jne Ayudas
+  1177 00000961 41                      	inc ecx
+  1178 00000962 80B9[00000000]64        	cmp byte[buffer+ecx],'d'
+  1179 00000969 0F85DBFEFFFF            	jne Ayudas
+  1180 0000096F 41                      	inc ecx
+  1181 00000970 80B9[00000000]6F        	cmp byte[buffer+ecx],'o'
+  1182 00000977 0F85CDFEFFFF            	jne Ayudas
+  1183 0000097D C3                      	ret
+  1184                                  
+  1185                                  LimpiaBufferComando:
+  1186 0000097E B900000000              	mov ecx,0
+  1187                                  	ciclo1:
+  1188 00000983 80B9[00000000]00        		cmp byte[buffer+ecx],0
+  1189 0000098A 740A                    		je l2
+  1190 0000098C C681[00000000]00        		mov byte[buffer+ecx],0
+  1191 00000993 41                      		inc ecx
+  1192 00000994 EBED                    		jmp ciclo1
+  1193                                  	l2:
+  1194 00000996 C3                      		ret
+  1195                                  
+  1196                                  LimpiaBufferNoms:
+  1197 00000997 B900000000              	mov ecx,0
+  1198                                  	ciclo2:
+  1199 0000099C 80B9[64000000]00        		cmp byte[bufferNomArchivo+ecx],0
+  1200 000009A3 740A                    		je l3
+  1201 000009A5 C681[64000000]00        		mov byte[bufferNomArchivo+ecx],0
+  1202 000009AC 41                      		inc ecx
+  1203 000009AD EBED                    		jmp ciclo2		
+  1204                                  	
+  1205                                  	l3:
+  1206 000009AF B900000000              	mov ecx,0
+  1207                                  	ciclo3:
+  1208 000009B4 80B9[96000000]00        		cmp byte[bufferNomArchivo2+ecx],0
+  1209 000009BB 740A                    		je l4
+  1210 000009BD C681[96000000]00        		mov byte[bufferNomArchivo2+ecx],0
+  1211 000009C4 41                      		inc ecx
+  1212 000009C5 EBED                    		jmp ciclo3	
+  1213                                  		
+  1214                                  	l4:
+  1215 000009C7 C3                      		ret
+  1216                                  		
+  1217                                  LimpiaBufferArchivo:
+  1218 000009C8 B900000000              	mov ecx,0
+  1219                                  	ciclo4:
+  1220 000009CD 80B9[C8000000]00        		cmp byte[bufferArchivo+ecx],0
+  1221 000009D4 740A                    		je LimpiezaTerminada
+  1222 000009D6 C681[C8000000]00        		mov byte[bufferArchivo+ecx],0
+  1223 000009DD 41                      		inc ecx
+  1224 000009DE EBED                    		jmp ciclo4
+  1225                                  				
+  1226                                  	LimpiezaTerminada:
+  1227 000009E0 C3                      		ret
+  1228                                  		
+  1229                                  ;-----------------------------------------
+  1230                                  ; Ciclos para limpiar los buffer usados. |
+  1231                                  ;-----------------------------------------
+  1232                                  LimpiarBuffers:
+  1233 000009E1 E898FFFFFF              	call LimpiaBufferComando
+  1234 000009E6 E8ACFFFFFF              	call LimpiaBufferNoms
+  1235 000009EB E8D8FFFFFF              	call LimpiaBufferArchivo
+  1236 000009F0 C3                      	ret
+  1237                                  	
+  1238                                  
+  1239                                  ;----------------------------------------------------
+  1240                                  ; Subrutina para registrar cuando ocurre un error.  |
+  1241                                  ;----------------------------------------------------
+  1242                                  RegistrarError:	
+  1243                                  	
+  1244                                  	; Abre el archivo que se quiere mostrar
+  1245                                  	_AbrirArchivo:
+  1246 000009F1 BB[7C050000]            		mov	ebx, archivoLogsTxt
+  1247 000009F6 B902000000              		mov	ecx, 2 
+  1248 000009FB B805000000              		mov	eax, sys_open
+  1249 00000A00 CD80                    		int	80h
+  1250                                  		
+  1251                                  	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+  1252                                  	_ChequeaError:
+  1253 00000A02 85C0                    		test	eax, eax
+  1254 00000A04 7918                    		jns	AbrirEnAppend
+  1255                                  		
+  1256                                  	CrearArchivo:
+  1257 00000A06 B808000000              		mov eax,sys_creat
+  1258 00000A0B BB[7C050000]            		mov ebx,archivoLogsTxt
+  1259 00000A10 B9FF010000              		mov ecx,511
+  1260 00000A15 CD80                    		int 80h
+  1261                                  		
+  1262                                  	; Se cierra
+  1263 00000A17 89C3                    	mov ebx,eax
+  1264 00000A19 E875010000              	call CerrarArchivo
+  1265                                  	
+  1266                                  		
+  1267                                  	AbrirEnAppend:
+  1268                                  	; Abrir archivo de logs
+  1269 00000A1E B805000000              	mov eax, sys_open
+  1270 00000A23 BB[7C050000]            	mov ebx, archivoLogsTxt
+  1271 00000A28 B901040000              	mov ecx, 0x401 ; Abrirlo en modo append.
+  1272 00000A2D CD80                    	int 80h
+  1273                                  
+  1274                                  	revisaError:
+  1275 00000A2F 85C0                    		test	eax, eax
+  1276 00000A31 0F883E010000            		js	ErrorArchivo
+  1277                                  		
+  1278                                  	; Distinguir el tipo de error que fue
+  1279                                  	; 1 Comando invalido
+  1280                                  	; 0 Archivo no existente
+  1281 00000A37 833D[12050000]01        	cmp dword[tipoError],1
+  1282 00000A3E 7557                    	jne errorArchivo
+  1283                                  	
+  1284                                  	errorComandoInvalido: 
+  1285                                  		; Cuenta cantidad de caracteres que se deben escribir
+  1286 00000A40 B900000000              		mov ecx,0
+  1287                                  		sigPos:
+  1288 00000A45 80B9[00000000]00        			cmp byte[buffer + ecx],0
+  1289 00000A4C 7403                    			je gotCantidadCaracteres
+  1290 00000A4E 41                      			inc ecx
+  1291 00000A4F EBF4                    			jmp sigPos
+  1292                                  		
+  1293                                  		gotCantidadCaracteres:
+  1294 00000A51 890D[11050000]          			mov dword[cantCaracteres],ecx
+  1295                                  		
+  1296                                  		; Escribir justificacion del log.
+  1297 00000A57 50                      		push eax ; guardar file descriptor
+  1298 00000A58 89C3                    		mov ebx, eax
+  1299 00000A5A B804000000              		mov eax, sys_write
+  1300 00000A5F B9[6D040000]            		mov ecx, comandoInvalidoTxt
+  1301 00000A64 BA13000000              		mov edx,comandoInvalidoLen
+  1302 00000A69 CD80                    		int 80h
+  1303                                  		
+  1304                                  		; Escribe "texto ingresado" en los logs.
+  1305 00000A6B 5B                      		pop ebx ; sacar file descriptor
+  1306 00000A6C 53                      		push ebx ; guardar file descriptor
+  1307 00000A6D B804000000              		mov eax, sys_write
+  1308 00000A72 B9[80040000]            		mov ecx,textoIngresadoTxt
+  1309 00000A77 BA11000000              		mov edx,textoIngresadoLen
+  1310 00000A7C CD80                    		int 80h 
+  1311                                  		
+  1312                                  		; Escribir en el archivo de logs
+  1313 00000A7E 5B                      		pop ebx ; sacar file descriptor
+  1314 00000A7F 53                      		push ebx ; guardar file descriptor
+  1315 00000A80 B804000000              		mov eax, sys_write
+  1316 00000A85 B9[00000000]            		mov ecx, buffer
+  1317 00000A8A 8B15[11050000]          		mov edx, [cantCaracteres]
+  1318 00000A90 CD80                    		int 80h
+  1319                                  		
+  1320 00000A92 E9B4000000              		jmp FinRegistraError
+  1321                                  		
+  1322                                  	
+  1323                                  	errorArchivo:
+  1324                                  		; Escribir justificacion del log.
+  1325 00000A97 50                      		push eax ; guardar file descriptor
+  1326 00000A98 89C3                    		mov ebx, eax
+  1327 00000A9A B804000000              		mov eax, sys_write
+  1328 00000A9F B9[92040000]            		mov ecx, errorArchNomTxt
+  1329 00000AA4 BA21000000              		mov edx, errorArchNomLen
+  1330 00000AA9 CD80                    		int 80h	
+  1331                                  
+  1332                                  		; Escribir en el archivo de logs "Nombre del archivo:"
+  1333 00000AAB 5B                      		pop ebx ; sacar file descriptor
+  1334 00000AAC 53                      		push ebx ; guardar file descriptor
+  1335 00000AAD B804000000              		mov eax, sys_write
+  1336 00000AB2 B9[B3040000]            		mov ecx, archivoNombreTxt
+  1337 00000AB7 BA14000000              		mov edx, archivoNombreLen
+  1338 00000ABC CD80                    		int 80h
+  1339                                  		
+  1340 00000ABE 8B0D[16050000]          		mov ecx, dword[numArchivo]
+  1341                                  		SeeEcx:
+  1342 00000AC4 833D[16050000]01        		cmp dword[numArchivo],1	
+  1343 00000ACB 7440                    		je A1
+  1344                                  		A2:
+  1345                                  					
+  1346                                  			; Leer cantidad de caracteres del nombre2
+  1347 00000ACD B900000000              			mov ecx,0
+  1348                                  			_sigPos:
+  1349 00000AD2 80B9[96000000]00        				cmp byte[bufferNomArchivo2 + ecx],0
+  1350 00000AD9 7403                    				je _gotCantidadCaracteres
+  1351 00000ADB 41                      				inc ecx
+  1352 00000ADC EBF4                    				jmp _sigPos
+  1353                                  			
+  1354                                  			_gotCantidadCaracteres:
+  1355 00000ADE 890D[11050000]          				mov dword[cantCaracteres],ecx		
+  1356                                  			
+  1357                                  			 ;Escribir nombre del archivo invalido
+  1358 00000AE4 5B                      			pop ebx ; sacar file descriptor
+  1359 00000AE5 53                      			push ebx ; guardar file descriptor
+  1360 00000AE6 B804000000              			mov eax, sys_write
+  1361 00000AEB B9[96000000]            			mov ecx, bufferNomArchivo2
+  1362 00000AF0 8B15[11050000]          			mov edx, [cantCaracteres]
+  1363 00000AF6 CD80                    			int 80h			
+  1364                                  
+  1365                                  			; Guardar enter entre cada registro
+  1366 00000AF8 5B                      			pop ebx
+  1367 00000AF9 53                      			push ebx
+  1368 00000AFA B804000000              			mov eax, sys_write
+  1369 00000AFF B9[91040000]            			mov ecx, enterTxt
+  1370 00000B04 BA01000000              			mov edx, enterLen
+  1371 00000B09 CD80                    			int 80h	
+  1372                                  
+  1373 00000B0B EB3E                    			jmp FinRegistraError
+  1374                                  		A1:	
+  1375                                  			; Leer cantidad de caracteres del nombre1
+  1376 00000B0D B900000000              			mov ecx,0
+  1377                                  			_sigPos2:
+  1378 00000B12 80B9[64000000]00        				cmp byte[bufferNomArchivo + ecx],0
+  1379 00000B19 7403                    				je _gotCantidadCaracteres2
+  1380 00000B1B 41                      				inc ecx
+  1381 00000B1C EBF4                    				jmp _sigPos2
+  1382                                  			
+  1383                                  			_gotCantidadCaracteres2:
+  1384 00000B1E 890D[11050000]          				mov dword[cantCaracteres],ecx
+  1385                                  				
+  1386                                  			; Escribir nombre del archivo invalido
+  1387 00000B24 5B                      			pop ebx ; sacar file descriptor
+  1388 00000B25 53                      			push ebx ; guardar file descriptor
+  1389 00000B26 B804000000              			mov eax, sys_write
+  1390 00000B2B B9[64000000]            			mov ecx, bufferNomArchivo
+  1391 00000B30 8B15[11050000]          			mov edx, [cantCaracteres]
+  1392 00000B36 CD80                    			int 80h		
+  1393                                  
+  1394                                  			; Guardar enter entre cada registro
+  1395 00000B38 5B                      			pop ebx
+  1396 00000B39 53                      			push ebx
+  1397 00000B3A B804000000              			mov eax, sys_write
+  1398 00000B3F B9[91040000]            			mov ecx, enterTxt
+  1399 00000B44 BA01000000              			mov edx, enterLen
+  1400 00000B49 CD80                    			int 80h	
+  1401                                  			
+  1402                                  	FinRegistraError:
+  1403                                  	
+  1404                                  		; Guardar enter entre cada registro
+  1405 00000B4B 5B                      		pop ebx
+  1406 00000B4C 53                      		push ebx
+  1407 00000B4D B804000000              		mov eax, sys_write
+  1408 00000B52 B9[91040000]            		mov ecx, enterTxt
+  1409 00000B57 BA01000000              		mov edx, enterLen
+  1410 00000B5C CD80                    		int 80h		
+  1411                                  		
+  1412                                  		;Cerramos el archivo
+  1413 00000B5E 5B                      		pop ebx ; sacar file descriptor
+  1414 00000B5F E82F000000              		call CerrarArchivo	
+  1415                                  		
+  1416 00000B64 C3                      		ret
+  1417                                  
+  1418                                  
+  1419                                  	
+  1420                                  ;**********************************************************************************************************************
+  1421                                  ; 												-> RUTINAS INTERMEDIAS <-                                             *
+  1422                                  ;**********************************************************************************************************************
+  1423                                  
+  1424                                  ;-------------------------------------
+  1425                                  ; Lee el comando digitado en buffer  |
+  1426                                  ;-------------------------------------	
+  1427                                  LeerComando:
+  1428 00000B65 B9[00000000]            	mov ecx, buffer
+  1429 00000B6A BA64000000              	mov edx, bufLen
+  1430 00000B6F E834000000              	call ReadText
+  1431 00000B74 C3                      	ret
+  1432                                  
+  1433                                  ;---------------------------------------------------------------------------
+  1434                                  ; Desplega un mensaje de error notificando que no se pudo abrir el archivo |
+  1435                                  ; y vuelve al prompt.                                                      |
+  1436                                  ;---------------------------------------------------------------------------
+  1437                                  ErrorArchivo:
+  1438 00000B75 E877FEFFFF              	call RegistrarError
+  1439                                  	
+  1440                                  	; Muestra en pantalla texto de error de archivo
+  1441 00000B7A B9[28000000]            	mov     ecx, errorArchivoTexto
+  1442 00000B7F BA2A000000              	mov		edx, errorArchivoLen
+  1443 00000B84 E812000000                  call    DisplayText
+  1444                                      
+  1445 00000B89 E8D7FFFFFF                  call LeerComando ; Simula la espera por el presionado de enter.
+  1446                                      
+  1447 00000B8E E96EF4FFFF              	jmp IngresarComando	
+  1448                                  
+  1449                                  ;-----------------------------------
+  1450                                  ; Subrutina para cerrar un archivo |
+  1451                                  ;-----------------------------------
+  1452                                  CerrarArchivo:
+  1453 00000B93 B806000000              	mov eax, sys_close
+  1454 00000B98 CD80                    	int 80h 
+  1455 00000B9A C3                      	ret
+  1456                                  ;--------------------------------------------------------------------
+  1457                                  ; Desplega algo en la salida estándar. debe "setearse" lo siguiente:|
+  1458                                  ; ecx: el puntero al mensaje a desplegar.                           |
+  1459                                  ; edx: el largo del mensaje a desplegar.                            |
+  1460                                  ; Modifica los registros eax y ebx.                                 |
+  1461                                  ;--------------------------------------------------------------------
+  1462                                  DisplayText:
+  1463 00000B9B B804000000              	mov eax,sys_write
+  1464 00000BA0 BB01000000              	mov ebx,stdout
+  1465 00000BA5 CD80                    	int 80h
+  1466 00000BA7 C3                      	ret
+  1467                                  	
+  1468                                  ;-----------------------------------------------------------------
+  1469                                  ; Lee algo de la entrada estándar.debe "setearse" lo siguiente:  |
+  1470                                  ; ecx: el puntero al buffer donde se almacenará.                 |
+  1471                                  ; edx: el largo del mensaje a leer.	                             |
+  1472                                  ;-----------------------------------------------------------------
+  1473                                  ReadText:
+  1474 00000BA8 B803000000              	mov eax,sys_read
+  1475 00000BAD BB00000000              	mov ebx,stdin
+  1476 00000BB2 CD80                    	int 80h
+  1477 00000BB4 C3                      	ret
+  1478                                  
+  1479                                  ;----------------------------------------------------
+  1480                                  ; Realiza los movimientos de los valores necesarios |
+  1481                                  ; para finalizar la ejecucion del programa.         |
+  1482                                  ;----------------------------------------------------
+  1483                                  Fin:
+  1484                                  	; Muestra en consola un mensaje de salida.
+  1485 00000BB5 B9[09000000]            	mov ecx,despedidaTxt
+  1486 00000BBA BA1F000000              	mov edx,len3
+  1487 00000BBF E8D7FFFFFF              	call DisplayText
+  1488                                  	
+  1489 00000BC4 B801000000              	mov eax,sys_exit
+  1490 00000BC9 BB00000000              	mov ebx,0
+  1491 00000BCE CD80                    	int 80h
+  1492                                  
+  1493                                  ;------------------------------------------------------
+  1494                                  ; Convierte de entero a ascii y imprime en consola    |
+  1495                                  ;------------------------------------------------------
+  1496                                  Int_to_ascii:					;se mueve el resultado de la suma a numero3
+  1497 00000BD0 C705[D1040000]0000-     	mov dword[resultado],0
+  1498 00000BD8 0000               
+  1499                                  	.divisiones_sucesivas:
+  1500                                  
+  1501 00000BDA 31D2                    		xor	edx,edx				;limpia el registro;Trae el valor de la direccion de memoria seleccionada[]
+  1502 00000BDC B90A000000              		mov ecx,10				
+  1503 00000BE1 6631DB                  		xor	bx,bx				;limpiar registro para usalrlo como contador de digitos de 16bits
+  1504                                  
+  1505                                  	.division:
+  1506 00000BE4 31D2                    		xor	edx,edx 			;limpia el registro edx
+  1507 00000BE6 F7F1                    		div	ecx					
+  1508 00000BE8 6652                    		push 	dx				;se hace push a dx
+  1509 00000BEA 6643                    		inc 	bx				;se incrementa bx
+  1510 00000BEC 85C0                    		test 	eax, eax		;test utiliza un AND para hacer la verificacion
+  1511 00000BEE 75F4                    		jnz	.division			;si no es cero repite el proceso
+  1512                                  
+  1513                                  	.acomoda_digitos:
+  1514 00000BF0 BA[D1040000]            		mov 	edx,resultado		
+  1515 00000BF5 6689D9                  		mov 	cx,bx
+  1516                                  
+  1517                                  	.siguente_digito:
+  1518 00000BF8 6658                    		pop ax					;recibe los digitos de la fucion division para realizar la suma
+  1519 00000BFA 0C30                    		or al,30h				;se suma 48, numero para convertir de int a ascii
+  1520 00000BFC 8802                    		mov [edx],byte al		;utiliza edx para modificar los valores 
+  1521 00000BFE 42                      		inc edx						
+  1522 00000BFF E2F7                    		loop .siguente_digito	
+  1523                                  	
+  1524                                  	.agrega_cambiodelinea:
+  1525 00000C01 C6020A                  	mov [edx],byte 0ah
+  1526                                  
+  1527                                  	.imprime_numero:			;toma el resultado y utiliza el edx como valor para imprmir en pantalla
+  1528 00000C04 6653                    		push bx				
+  1529 00000C06 B9[D1040000]            		mov	ecx,resultado
+  1530 00000C0B 31D2                    		xor	edx,edx
+  1531 00000C0D 665A                    		pop	dx
+  1532 00000C0F 6642                    		inc	dx
+  1533 00000C11 6642                    		inc	dx
+  1534 00000C13 C3                      	ret
+  1535                                  	

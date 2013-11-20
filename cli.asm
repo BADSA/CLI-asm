@@ -19,12 +19,11 @@ stdin 		equ 0
 sys_read 	equ 3
 sys_write 	equ 4
 sys_open 	equ 5
-
+sys_close	equ	6
+sys_creat	equ	8
 %define sys_unlink 10
 %define sys_link 9
-%define sys_creat 8
 %define sys_rename 38
-%define sys_close 6
 
 SECTION .bss ; Datos no inicializados.
 	
@@ -35,10 +34,10 @@ SECTION .bss ; Datos no inicializados.
 	bufferNomArchivo	resb	bufLenNomArchivo  ; 50 bytes para guardar los nombres de los archivos
 	bufferNomArchivo2	resb	bufLenNomArchivo  ; necesarios para los comandos.
 	
-	bufLenArchivo		equ		1600 ; Tamano para leer el archivo en memoria.
+	bufLenArchivo		equ		3000 ; Tamano para leer el archivo en memoria.
 	bufferArchivo		resb	bufLenArchivo 
 	
-	bufLenArchivo2		equ		1600 ; Tamano para leer el archivo en memoria.
+	bufLenArchivo2		equ		3000 ; Tamano para leer el archivo en memoria.
 	bufferArchivo2		resb	bufLenArchivo2 
 	
 	
@@ -62,7 +61,7 @@ SECTION .data ; Datos inicializados
 	
 	errorComando:		db		10, "ERROR:",10,
 						db		"Comando no valido.",10
-						db		"ENTER para continuar",10
+						db		"ENTER para IngresarComando",10
 								
 	lenErrorComando:	equ		$-errorComando
 	
@@ -87,36 +86,54 @@ SECTION .data ; Datos inicializados
 	archivoDiferenteTxt:	db		"Los archivos son diferentes en las lineas:",10
 	lenArchivoDiferente:	equ		$-archivoDiferenteTxt
 	
-	archivo1Txt:				db "Hasta este punto el archivo 1 no contiene mas informacion",10
+	archivo1Txt:				db " Hasta este punto el archivo 1 no contiene mas informacion",10
 	lenArchivo1Txt:			equ $-archivo1Txt
 	
-	archivo2Txt:				db "Hasta este punto el archivo 2 no contiene mas informacion",10
+	archivo2Txt:				db " Hasta este punto el archivo 2 no contiene mas informacion",10
 	lenArchivo2Txt:			equ $-archivo2Txt
 	
 	; Borrar first help
 	borrarFhTxt:			db	"borrar: falta un fichero como operando",10
 							db	"Digite 'borrar --ayuda' para mas informacion.",10
+							db		"ENTER para IngresarComando",10
 	borrarFhLen:			equ	$-borrarFhTxt
 
 	; Mostrar first help
 	mostrarFhTxt:			db	"mostrar: falta un fichero como operando",10
 							db	"Digite 'mostrar --ayuda' para mas informacion.",10
+							db		"ENTER para IngresarComando",10
 	mostrarFhLen:			equ	$-mostrarFhTxt
 	
 	; Comparar first help
 	compararFhTxt:			db	"comparar: faltan dos ficheros como operandos",10
 							db	"Digite 'comparar --ayuda' para mas informacion.",10
+							db		"ENTER para IngresarComando",10
 	compararFhLen:			equ	$-compararFhTxt
 	
 	; Renombrar first help
 	renombrarFhTxt:			db	"renombrar: faltan dos nombres como operando",10
 							db	"Digite 'renombrar --ayuda' para mas informacion.",10
+							db		"ENTER para IngresarComando",10
 	renombrarFhLen:			equ	$-renombrarFhTxt
 
 	; Copiar first help
 	copiarFhTxt:			db	"copiar: faltan dos ficheros como operandos",10
 							db	"Digite 'copiar --ayuda' para mas informacion.",10
+							db		"ENTER para IngresarComando",10
 	copiarFhLen:			equ	$-copiarFhTxt
+	
+	
+	; Textos para los logs
+	comandoInvalidoTxt:		db	"Comando no valido.",10
+	comandoInvalidoLen:		equ $-comandoInvalidoTxt
+	textoIngresadoTxt:		db	"Texto ingresado: "
+	textoIngresadoLen:		equ	$-textoIngresadoTxt
+	enterTxt:				db	10
+	enterLen:				equ $-enterTxt
+	errorArchNomTxt:	 	db 	"No se pudo encontrar el archivo.",10
+	errorArchNomLen:		equ $-errorArchNomTxt
+	archivoNombreTxt:		db	"Nombre del archivo: "
+	archivoNombreLen:		equ	$-archivoNombreTxt
 	
 	
 	;-------------------------------------
@@ -126,7 +143,10 @@ SECTION .data ; Datos inicializados
 	cuentaLineas: 		db 		0
 	indexBuffer: 		dd 		0
 	cantLineas:			dd		0
-	resultado:  		times  16 dd 0;
+	resultado:  		times  16 dd 0
+	cantCaracteres:		db		0
+	tipoError:			dd		0
+	numArchivo:			db		0
 	
 	;--------------------------------------
 	; Archivos txt con ayudas de comandos.|
@@ -136,6 +156,7 @@ SECTION .data ; Datos inicializados
 	ayudaRenombrarTxt:		db 		"Ayuda/renombrar.ayuda",0
 	ayudaCopiarTxt:			db 		"Ayuda/copiar.ayuda",0
 	ayudaCompararTxt:		db 		"Ayuda/comparar.ayuda",0
+	archivoLogsTxt:			db		"logs.txt",0
 	
 		
 	
@@ -151,54 +172,12 @@ _start:
 ;------------------------------------------------------------------------------
 IngresarComando:
 
-	;-----------------------------------------
-	; Ciclos para limpiar los buffer usados. |
-	;-----------------------------------------
-	mov ecx,0
-	ciclo1:
-		cmp byte[buffer+ecx],0
-		je l2
-		mov byte[buffer+ecx],0
-		inc ecx
-		jmp ciclo1
-	l2:
-	mov ecx,0
-	ciclo2:
-		cmp byte[bufferNomArchivo+ecx],0
-		je l3
-		mov byte[bufferNomArchivo+ecx],0
-		inc ecx
-		jmp ciclo2		
-	
-	l3:
-	mov ecx,0
-	ciclo3:
-		cmp byte[bufferNomArchivo2+ecx],0
-		je l4
-		mov byte[bufferNomArchivo2+ecx],0
-		inc ecx
-		jmp ciclo3	
-		
-	l4:
-	mov ecx,0
-	ciclo4:
-		cmp byte[bufferArchivo+ecx],0
-		je LimpiezaTerminada
-		mov byte[bufferArchivo+ecx],0
-		inc ecx
-		jmp ciclo4
-			
-					
-	LimpiezaTerminada:
+	call LimpiarBuffers
 	
     ; Limpia la pantalla
     mov ecx,clrScr
     mov edx,len9
     call DisplayText
-    
-    xor ecx,ecx
-    mov cl,'t' ; Se mueve una t de true para indicar que el ciclo continua.
-    push ecx ; Se guarda el valor para verificar la continuidad del ciclo.
     
 	; Muestra en pantalla el prompt.
 	mov ecx, promptTxt
@@ -229,25 +208,25 @@ IngresarComando:
 	cmp byte[buffer+1] , 'o'
 	je ComprobarCopiarOComparar
 	jne ErrorComando
-	
-	Continuar: ; Chequea la variable del ciclo.
-		xor ecx,ecx 
-		pop ecx
-		cmp ecx,'t'
-		je IngresarComando
-		jne Fin
+
 	
 ;-------------------------------------------	
 ; Muestra texto de comando no encontrado.  |
 ;-------------------------------------------
 ErrorComando:
-		mov ecx,errorComando
-		mov edx,lenErrorComando
-		call DisplayText
+	mov ecx,1
+	mov dword[tipoError],ecx
+	call RegistrarError
 
-		; Espera por ENTER para ser presionado.
-		call LeerComando
-		jmp Continuar
+	; Muestra texto de error.
+	mov ecx,errorComando
+	mov edx,lenErrorComando
+	call DisplayText
+
+	; Espera por ENTER para ser presionado.
+	call LeerComando	
+	
+	jmp IngresarComando
 	
 ;-------------------------------------------------------------------------------------
 ; Comprueba si "salir" fue digitado y hace lo correspondiente si fue o no ingresado. |
@@ -269,11 +248,7 @@ ComprobarSalir:
 	
 	Sale:
 	; Si la instruccion fue salir se termina el ciclo moviendo una f a cl.
-	xor ecx,ecx 
-	pop ecx
-	mov cl,'f'
-	push ecx
-	jmp Continuar
+	jmp Fin
 	
 ;---------------------------------------------------------------------------------------
 ; Comprueba si "mostrar" fue digitado y hace lo correspondiente si fue o no ingresado. |
@@ -314,22 +289,27 @@ ComprobarMostrar:
 
 	; Abre el archivo que se quiere mostrar
 	AbrirArchivo:
-	mov	ebx, bufferNomArchivo
-	mov	ecx, 0 ; Read only		
-	mov	eax, sys_open
-	int	80h
+		mov	ebx, bufferNomArchivo
+		mov	ecx, 0 ; Read only		
+		mov	eax, sys_open
+		int	80h
 		
 	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
 	ChequeaError:
+		mov dword[numArchivo],1
 		test	eax, eax
 		js	ErrorArchivo
 
 	; Sino ocurrio error, entonces se lee el archivo en un buffer.
+	push eax
 	mov		ebx, eax
 	mov		ecx, bufferArchivo
 	mov		edx, bufLenArchivo
 	mov		eax, sys_read		
 	int 	80h
+
+	pop ebx
+	call CerrarArchivo
 	
 	; Se imprime en pantalla el archivo.
 	mov ecx,bufferArchivo
@@ -338,7 +318,7 @@ ComprobarMostrar:
 	
 	; Simula la espera por un ENTER.
 	call LeerComando
-	jmp Continuar	
+	jmp IngresarComando	
 
 ;---------------------------------------------------------------------------------------
 ; Comprueba si "borrar" fue digitado y hace lo correspondiente si fue o no ingresado.  |
@@ -396,7 +376,7 @@ ComprobarBorrar:
 		call LeerComando
 		
 		cmp byte[buffer],'s'
-		jne Continuar
+		jne IngresarComando
 		
 		NoPreguntaBorrar:
 			; Se dispone a borrar si la opcion fue 's'
@@ -413,6 +393,8 @@ ComprobarBorrar:
 			
 			; Mensaje de no se pudo borrar el archivo.
 			.fail:
+				mov dword[numArchivo],1
+				call RegistrarError
 				mov ecx, msg_fail
 				mov edx,lenFail
 				call DisplayText
@@ -428,7 +410,7 @@ ComprobarBorrar:
 			.Done:
 				call LeerComando
 		
-		jmp Continuar
+		jmp IngresarComando
 
 ;---------------------------------------------------------------------------------------
 ; Comprueba si "renombrar" fue digitado y hace lo correspondiente si fue o no ingresado. |
@@ -508,7 +490,7 @@ ComprobarRenombrar:
 		call LeerComando
 		
 		cmp byte[buffer],'s'
-		jne Continuar
+		jne IngresarComando
 	
 		NoPreguntaRen:
 			
@@ -522,6 +504,8 @@ ComprobarRenombrar:
 			
 			; Mostrar mensaje de no se pudo completar.
 			.fail:
+				mov dword[numArchivo],1
+				call RegistrarError
 				mov ecx, msg_fail
 				mov edx,lenFail
 				call DisplayText
@@ -537,7 +521,7 @@ ComprobarRenombrar:
 			.Done:
 				call LeerComando
 
-		jmp Continuar
+		jmp IngresarComando
 	
 ;---------------------------------------
 ; Se distingue entre Copiar y Comparar |
@@ -614,6 +598,8 @@ ComprobarCopiar:
 		
 		; Mostrar mensaje de no se pudo completar.
 		.fail:
+			mov dword[numArchivo],1
+			call RegistrarError
 			mov ecx, msg_fail
 			mov edx,lenFail
 			call DisplayText
@@ -629,7 +615,7 @@ ComprobarCopiar:
 		.Done:
 			call LeerComando
 			
-		jmp Continuar
+		jmp IngresarComando
 
 
 ;----------------------------------------------------------------------------------------
@@ -693,6 +679,7 @@ CompArchivos:
 		
 	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
 	.ChequeaError:
+		mov dword[numArchivo],1
 		test	eax, eax
 		js	ErrorArchivo
 
@@ -703,6 +690,7 @@ CompArchivos:
 	mov		eax, sys_read		
 	int 	80h
 	
+	; Abre el archivo #2
 	mov	ebx, bufferNomArchivo2
 	mov	ecx, 0 ; Read only		
 	mov	eax, sys_open
@@ -710,6 +698,7 @@ CompArchivos:
 		
 	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
 	.ChequeaError2:
+		mov dword[numArchivo],0
 		test	eax, eax
 		js	ErrorArchivo
 
@@ -748,7 +737,7 @@ CompArchivos:
 
 ;ciclo mueve el ecx al proximo enter, siendo ecx el indice del buffer con
 ;la informacion del archivo
-;recorriendo la linea hasta el final para continuar
+;recorriendo la linea hasta el final para IngresarComando
 ;al terminar binca a la parte donde se aumenta el contador de lineas
 			
 	.continuaArchivo1:
@@ -762,7 +751,7 @@ CompArchivos:
 
 ;ciclo mueve el eax al proximo enter, siendo ecx el indice del buffer con
 ;la informacion del archivo numero 2
-;recorriendo la linea hasta el final para continuar
+;recorriendo la linea hasta el final para IngresarComando
 ;al terminar binca a la parte donde se aumenta el contador de lineas
 	.continuaArchivo2:
 		mov bl,byte[bufferArchivo2+eax]
@@ -880,7 +869,7 @@ CompArchivos:
 		mov ecx,archivoIgualesTxt
 		call DisplayText
 		call ReadText
-		jmp Continuar
+		jmp IngresarComando
 	
 	.fin:
 		call ReadText
@@ -929,7 +918,7 @@ PrimeraAyuda:
 	
 	; Espera por un ENTER
 	call LeerComando
-	jmp Continuar
+	jmp IngresarComando
 
 
 ;----------------------------------------------
@@ -1028,7 +1017,7 @@ Ayudas:
 	
 	; Espera por un ENTER
 	call LeerComando
-	jmp Continuar
+	jmp IngresarComando
 
 ;-------------------------------------------------------------------------
 ; Comprueba si el argumento "--forzado" fue digitado de manera correcta. |
@@ -1063,6 +1052,238 @@ ComprobarForzado:
 	jne Ayudas
 	ret
 
+LimpiaBufferComando:
+	mov ecx,0
+	ciclo1:
+		cmp byte[buffer+ecx],0
+		je l2
+		mov byte[buffer+ecx],0
+		inc ecx
+		jmp ciclo1
+	l2:
+		ret
+
+LimpiaBufferNoms:
+	mov ecx,0
+	ciclo2:
+		cmp byte[bufferNomArchivo+ecx],0
+		je l3
+		mov byte[bufferNomArchivo+ecx],0
+		inc ecx
+		jmp ciclo2		
+	
+	l3:
+	mov ecx,0
+	ciclo3:
+		cmp byte[bufferNomArchivo2+ecx],0
+		je l4
+		mov byte[bufferNomArchivo2+ecx],0
+		inc ecx
+		jmp ciclo3	
+		
+	l4:
+		ret
+		
+LimpiaBufferArchivo:
+	mov ecx,0
+	ciclo4:
+		cmp byte[bufferArchivo+ecx],0
+		je LimpiezaTerminada
+		mov byte[bufferArchivo+ecx],0
+		inc ecx
+		jmp ciclo4
+				
+	LimpiezaTerminada:
+		ret
+		
+;-----------------------------------------
+; Ciclos para limpiar los buffer usados. |
+;-----------------------------------------
+LimpiarBuffers:
+	call LimpiaBufferComando
+	call LimpiaBufferNoms
+	call LimpiaBufferArchivo
+	ret
+	
+
+;----------------------------------------------------
+; Subrutina para registrar cuando ocurre un error.  |
+;----------------------------------------------------
+RegistrarError:	
+	
+	; Abre el archivo que se quiere mostrar
+	_AbrirArchivo:
+		mov	ebx, archivoLogsTxt
+		mov	ecx, 2 
+		mov	eax, sys_open
+		int	80h
+		
+	; Si ocurrio un error al intentar abrir el archivo brinca a ErrorArchivo
+	_ChequeaError:
+		test	eax, eax
+		jns	AbrirEnAppend
+		
+	CrearArchivo:
+		mov eax,sys_creat
+		mov ebx,archivoLogsTxt
+		mov ecx,511
+		int 80h
+		
+	; Se cierra
+	mov ebx,eax
+	call CerrarArchivo
+	
+		
+	AbrirEnAppend:
+	; Abrir archivo de logs
+	mov eax, sys_open
+	mov ebx, archivoLogsTxt
+	mov ecx, 0x401 ; Abrirlo en modo append.
+	int 80h
+
+	revisaError:
+		test	eax, eax
+		js	ErrorArchivo
+		
+	; Distinguir el tipo de error que fue
+	; 1 Comando invalido
+	; 0 Archivo no existente
+	cmp dword[tipoError],1
+	jne errorArchivo
+	
+	errorComandoInvalido: 
+		; Cuenta cantidad de caracteres que se deben escribir
+		mov ecx,0
+		sigPos:
+			cmp byte[buffer + ecx],0
+			je gotCantidadCaracteres
+			inc ecx
+			jmp sigPos
+		
+		gotCantidadCaracteres:
+			mov dword[cantCaracteres],ecx
+		
+		; Escribir justificacion del log.
+		push eax ; guardar file descriptor
+		mov ebx, eax
+		mov eax, sys_write
+		mov ecx, comandoInvalidoTxt
+		mov edx,comandoInvalidoLen
+		int 80h
+		
+		; Escribe "texto ingresado" en los logs.
+		pop ebx ; sacar file descriptor
+		push ebx ; guardar file descriptor
+		mov eax, sys_write
+		mov ecx,textoIngresadoTxt
+		mov edx,textoIngresadoLen
+		int 80h 
+		
+		; Escribir en el archivo de logs
+		pop ebx ; sacar file descriptor
+		push ebx ; guardar file descriptor
+		mov eax, sys_write
+		mov ecx, buffer
+		mov edx, [cantCaracteres]
+		int 80h
+		
+		jmp FinRegistraError
+		
+	
+	errorArchivo:
+		; Escribir justificacion del log.
+		push eax ; guardar file descriptor
+		mov ebx, eax
+		mov eax, sys_write
+		mov ecx, errorArchNomTxt
+		mov edx, errorArchNomLen
+		int 80h	
+
+		; Escribir en el archivo de logs "Nombre del archivo:"
+		pop ebx ; sacar file descriptor
+		push ebx ; guardar file descriptor
+		mov eax, sys_write
+		mov ecx, archivoNombreTxt
+		mov edx, archivoNombreLen
+		int 80h
+		
+		mov ecx, dword[numArchivo]
+		SeeEcx:
+		cmp dword[numArchivo],1	
+		je A1
+		A2:
+					
+			; Leer cantidad de caracteres del nombre2
+			mov ecx,0
+			_sigPos:
+				cmp byte[bufferNomArchivo2 + ecx],0
+				je _gotCantidadCaracteres
+				inc ecx
+				jmp _sigPos
+			
+			_gotCantidadCaracteres:
+				mov dword[cantCaracteres],ecx		
+			
+			 ;Escribir nombre del archivo invalido
+			pop ebx ; sacar file descriptor
+			push ebx ; guardar file descriptor
+			mov eax, sys_write
+			mov ecx, bufferNomArchivo2
+			mov edx, [cantCaracteres]
+			int 80h			
+
+			; Guardar enter entre cada registro
+			pop ebx
+			push ebx
+			mov eax, sys_write
+			mov ecx, enterTxt
+			mov edx, enterLen
+			int 80h	
+
+			jmp FinRegistraError
+		A1:	
+			; Leer cantidad de caracteres del nombre1
+			mov ecx,0
+			_sigPos2:
+				cmp byte[bufferNomArchivo + ecx],0
+				je _gotCantidadCaracteres2
+				inc ecx
+				jmp _sigPos2
+			
+			_gotCantidadCaracteres2:
+				mov dword[cantCaracteres],ecx
+				
+			; Escribir nombre del archivo invalido
+			pop ebx ; sacar file descriptor
+			push ebx ; guardar file descriptor
+			mov eax, sys_write
+			mov ecx, bufferNomArchivo
+			mov edx, [cantCaracteres]
+			int 80h		
+
+			; Guardar enter entre cada registro
+			pop ebx
+			push ebx
+			mov eax, sys_write
+			mov ecx, enterTxt
+			mov edx, enterLen
+			int 80h	
+			
+	FinRegistraError:
+	
+		; Guardar enter entre cada registro
+		pop ebx
+		push ebx
+		mov eax, sys_write
+		mov ecx, enterTxt
+		mov edx, enterLen
+		int 80h		
+		
+		;Cerramos el archivo
+		pop ebx ; sacar file descriptor
+		call CerrarArchivo	
+		
+		ret
 
 
 	
@@ -1084,12 +1305,24 @@ LeerComando:
 ; y vuelve al prompt.                                                      |
 ;---------------------------------------------------------------------------
 ErrorArchivo:
+	call RegistrarError
+	
+	; Muestra en pantalla texto de error de archivo
 	mov     ecx, errorArchivoTexto
 	mov		edx, errorArchivoLen
     call    DisplayText
+    
     call LeerComando ; Simula la espera por el presionado de enter.
-	jmp Continuar	
-	
+    
+	jmp IngresarComando	
+
+;-----------------------------------
+; Subrutina para cerrar un archivo |
+;-----------------------------------
+CerrarArchivo:
+	mov eax, sys_close
+	int 80h 
+	ret
 ;--------------------------------------------------------------------
 ; Desplega algo en la salida estándar. debe "setearse" lo siguiente:|
 ; ecx: el puntero al mensaje a desplegar.                           |
@@ -1126,7 +1359,10 @@ Fin:
 	mov eax,sys_exit
 	mov ebx,0
 	int 80h
-	
+
+;------------------------------------------------------
+; Convierte de entero a ascii y imprime en consola    |
+;------------------------------------------------------
 Int_to_ascii:					;se mueve el resultado de la suma a numero3
 	mov dword[resultado],0
 	.divisiones_sucesivas:
